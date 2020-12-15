@@ -1,3 +1,6 @@
+import time
+import logging
+
 import ert3
 
 import argparse
@@ -88,6 +91,7 @@ def _record(workspace, args):
 
 
 def main():
+    start_time = time.time()
     parser = _build_argparser()
     args = parser.parse_args()
 
@@ -113,7 +117,8 @@ def main():
         _record(workspace, args)
     else:
         raise NotImplementedError(f"No implementation to handle command {args.sub_cmd}")
-
+    print(f"Run time: {time.time() - start_time}")
+    logging.info(f"Run time: {time.time() - start_time}")
 
 def _load_ensemble_config(workspace, experiment_name):
     with open(workspace / experiment_name / "ensemble.yml") as f:
