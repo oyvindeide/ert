@@ -74,11 +74,29 @@ class MeasuredData(object):
         if len(index_lists) != len(observation_keys):
             raise ValueError("index list must be same length as observations keys")
 
+        from collections import defaultdict
+        key_map = defaultdict(list)
         for key, index_list in zip(observation_keys, index_lists):
-            observation_type = self._facade.get_impl_type_name_for_obs_key(key)
-            data_loader = loader.data_loader_factory(observation_type)
+            data_key = self._facade.get_data_key_for_obs_key(key)
+            key_map[data_key].append((key, index_list))
+        from ert_data.loader import load_summary_data, _remove_inactive_report_steps
+        # for key, index_list in zip(observation_keys, index_lists):
+        for data_key, entry in key_map.items():
+            if len(entry) == 1:
+                key, index_list = entry[0]
+                observation_type = self._facade.get_impl_type_name_for_obs_key(key)
+                data_loader = loader.data_loader_factory(observation_type)
+                if observation_type == "SUMMARY_OBS":
+                    data = load_summary_data(self._facade, data_key, case_name, load_data)
+                else:
+                    data = data_loader(self._facade, key, case_name, load_data)
 
-            data = data_loader(self._facade, key, case_name, load_data)
+            else:
+                data = load_summary_data(self._facade, data_key, case_name, load_data)
+                my_keys = [val[0] for val in entry]
+                args = (self._facade, my_keys)
+                data.pipe(_remove_inactive_report_steps, *args)
+                print(1)
 
             # Simulated data and observations both refer to the data
             # index at some levels, so having that information available is
