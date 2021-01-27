@@ -84,7 +84,6 @@ class MeasuredData(object):
         for data_key, entry in key_map.items():
             if len(entry) == 1:
                 key, index_list = entry[0]
-                my_keys = [key]
                 observation_type = self._facade.get_impl_type_name_for_obs_key(key)
                 data_loader = loader.data_loader_factory(observation_type)
                 if observation_type == "SUMMARY_OBS":
@@ -93,6 +92,9 @@ class MeasuredData(object):
                     data = data_loader(self._facade, key, case_name, load_data)
             else:
                 data = load_summary_data(self._facade, data_key, case_name, load_data)
+            # Simulated data and observations both refer to the data
+            # index at some levels, so having that information available is
+            # helpful
             _add_index_range(data)
 
             for obs_key, index_list in entry:
@@ -101,10 +103,6 @@ class MeasuredData(object):
                     add_data = data.pipe(_remove_inactive_report_steps, *args)
                 else:
                     add_data = data
-                # Simulated data and observations both refer to the data
-                # index at some levels, so having that information available is
-                # helpful
-                # _add_index_range(add_data)
 
                 add_data = MeasuredData._filter_on_column_index(add_data, index_list)
                 add_data = pd.concat({obs_key: add_data}, axis=1)

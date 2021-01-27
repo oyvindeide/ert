@@ -20,7 +20,7 @@ def test_measured_data(monkeypatch, tmpdir):
         os.chdir("test_data")
 
         obs_file = pathlib.Path.cwd() / "observations" / "observations.txt"
-        with obs_file.open(mode='a') as fin:
+        with obs_file.open(mode="a") as fin:
             fin.write(create_summary_observation())
 
         res_config = ResConfig("snake_oil.ert")
@@ -41,8 +41,9 @@ def test_measured_data(monkeypatch, tmpdir):
 
 def create_summary_observation():
     import numpy as np
+
     observations = ""
-    values = np.random.uniform(0,1.5,199)
+    values = np.random.uniform(0, 1.5, 199)
     errors = values * 0.1
     for restart, (value, error) in enumerate(zip(values, errors)):
         restart += 1
