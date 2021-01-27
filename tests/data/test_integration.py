@@ -1,3 +1,4 @@
+import time
 import pathlib
 import os
 import shutil
@@ -26,7 +27,6 @@ def test_measured_data(monkeypatch, tmpdir):
         ert = EnKFMain(res_config)
 
         facade = LibresFacade(ert)
-        import time
 
         start_time = time.time()
         MeasuredData(facade, [f"FOPR_{restart}" for restart in range(1, 200)])
@@ -36,8 +36,7 @@ def test_measured_data(monkeypatch, tmpdir):
         MeasuredData(facade, ["FOPR"])
         history_obs_time = time.time() - start_time
 
-
-    print(1)
+    assert summary_obs_time < 10 * history_obs_time
 
 
 def create_summary_observation():
