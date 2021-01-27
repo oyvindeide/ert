@@ -1,7 +1,9 @@
+from collections import defaultdict
+
 import pandas as pd
 
 from ert_data import loader
-
+from ert_data.loader import load_summary_data, _remove_inactive_report_steps
 
 class MeasuredData(object):
     def __init__(self, facade, keys, index_lists=None, load_data=True):
@@ -74,39 +76,40 @@ class MeasuredData(object):
         if len(index_lists) != len(observation_keys):
             raise ValueError("index list must be same length as observations keys")
 
-        from collections import defaultdict
         key_map = defaultdict(list)
         for key, index_list in zip(observation_keys, index_lists):
             data_key = self._facade.get_data_key_for_obs_key(key)
             key_map[data_key].append((key, index_list))
-        from ert_data.loader import load_summary_data, _remove_inactive_report_steps
-        # for key, index_list in zip(observation_keys, index_lists):
+
         for data_key, entry in key_map.items():
             if len(entry) == 1:
                 key, index_list = entry[0]
+                my_keys = [key]
                 observation_type = self._facade.get_impl_type_name_for_obs_key(key)
                 data_loader = loader.data_loader_factory(observation_type)
                 if observation_type == "SUMMARY_OBS":
                     data = load_summary_data(self._facade, data_key, case_name, load_data)
                 else:
                     data = data_loader(self._facade, key, case_name, load_data)
-
             else:
                 data = load_summary_data(self._facade, data_key, case_name, load_data)
-                my_keys = [val[0] for val in entry]
-                args = (self._facade, my_keys)
-                data.pipe(_remove_inactive_report_steps, *args)
-                print(1)
-
-            # Simulated data and observations both refer to the data
-            # index at some levels, so having that information available is
-            # helpful
             _add_index_range(data)
 
-            data = MeasuredData._filter_on_column_index(data, index_list)
-            data = pd.concat({key: data}, axis=1)
+            for obs_key, index_list in entry:
+                if self._facade.get_impl_type_name_for_obs_key(obs_key) == "SUMMARY_OBS":
+                    args = (self._facade, [obs_key])
+                    add_data = data.pipe(_remove_inactive_report_steps, *args)
+                else:
+                    add_data = data
+                # Simulated data and observations both refer to the data
+                # index at some levels, so having that information available is
+                # helpful
+                # _add_index_range(add_data)
 
-            measured_data = pd.concat([measured_data, data], axis=1)
+                add_data = MeasuredData._filter_on_column_index(add_data, index_list)
+                add_data = pd.concat({obs_key: add_data}, axis=1)
+
+                measured_data = pd.concat([measured_data, add_data], axis=1)
 
         return measured_data.astype(float)
 
