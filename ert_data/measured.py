@@ -3,7 +3,7 @@ from collections import defaultdict
 import pandas as pd
 
 from ert_data import loader
-from ert_data.loader import load_summary_data, _remove_inactive_report_steps
+
 
 class MeasuredData(object):
     def __init__(self, facade, keys, index_lists=None, load_data=True):
@@ -67,7 +67,6 @@ class MeasuredData(object):
         members will have a data key, observed data will be named OBS and
         observed standard deviation will be named STD.
         """
-        measured_data = pd.DataFrame()
         case_name = self._facade.get_current_case_name()
 
         if index_lists is None:
@@ -77,39 +76,32 @@ class MeasuredData(object):
             raise ValueError("index list must be same length as observations keys")
 
         key_map = defaultdict(list)
-        for key, index_list in zip(observation_keys, index_lists):
+        for key in observation_keys:
             data_key = self._facade.get_data_key_for_obs_key(key)
-            key_map[data_key].append((key, index_list))
+            key_map[data_key].append(key)
 
-        for data_key, entry in key_map.items():
-            if len(entry) == 1:
-                key, index_list = entry[0]
-                observation_type = self._facade.get_impl_type_name_for_obs_key(key)
-                data_loader = loader.data_loader_factory(observation_type)
-                if observation_type == "SUMMARY_OBS":
-                    data = load_summary_data(self._facade, data_key, case_name, load_data)
-                else:
-                    data = data_loader(self._facade, key, case_name, load_data)
+        data_map = {}
+
+        for data_key, obs_keys in key_map.items():
+            obs_types = [
+                self._facade.get_impl_type_name_for_obs_key(key) for key in obs_keys
+            ]
+            assert (
+                len(set(obs_types)) == 1
+            ), f"More than one observation type found for data key: {data_key}"
+            observation_type = obs_types[0]
+            data_loader, obs_loader = loader.data_loader_factory(observation_type)
+            if load_data:
+                data = data_loader(self._facade, data_key, case_name)
+                _add_index_range(data)
             else:
-                data = load_summary_data(self._facade, data_key, case_name, load_data)
-            # Simulated data and observations both refer to the data
-            # index at some levels, so having that information available is
-            # helpful
-            _add_index_range(data)
+                data = None
+            obs = obs_loader(self._facade, obs_keys, case_name)
+            for obs_key in obs_keys:
+                data_for_key = extract_data(data, obs[obs_key])
+                data_map[obs_key] = pd.concat([obs[obs_key], data_for_key])
 
-            for obs_key, index_list in entry:
-                if self._facade.get_impl_type_name_for_obs_key(obs_key) == "SUMMARY_OBS":
-                    args = (self._facade, [obs_key])
-                    add_data = data.pipe(_remove_inactive_report_steps, *args)
-                else:
-                    add_data = data
-
-                add_data = MeasuredData._filter_on_column_index(add_data, index_list)
-                add_data = pd.concat({obs_key: add_data}, axis=1)
-
-                measured_data = pd.concat([measured_data, add_data], axis=1)
-
-        return measured_data.astype(float)
+        return pd.concat(data_map, axis=1).astype(float)
 
     def filter_ensemble_std(self, std_cutoff):
         self._set_data(self._filter_ensemble_std(std_cutoff))
@@ -158,6 +150,18 @@ class MeasuredData(object):
             return dataframe.iloc[:, list(index_list)]
         else:
             return dataframe
+
+
+def extract_data(data, obs):
+    if data is None:
+        return None
+    else:
+        return data.loc[
+            :,
+            data.columns.get_level_values("key_index").isin(
+                obs.columns.get_level_values("key_index")
+            ),
+        ]
 
 
 def _add_index_range(data):

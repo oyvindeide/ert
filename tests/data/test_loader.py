@@ -105,15 +105,12 @@ def test_load_summary_data(facade, monkeypatch):
     observation_key = facade.get_observations()[data_key].getDataKey()
     case_name = "a_random_name"
 
-    result = loader.load_summary_data(facade, observation_key, case_name)
+    result = loader.load_summary_data(facade, data_key, case_name)
 
     mocked_get_summary_observations.assert_called_once_with(
-        facade, observation_key, data_key, case_name
+        facade, data_key, case_name
     )
     mocked_get_summary_data.assert_called_once_with(
-        facade, observation_key, data_key, case_name
-    )
-    mocked_remove_inactive_report_steps.assert_called_once_with(
-        ANY, facade, observation_key, data_key, case_name
+        facade, data_key, case_name
     )
     assert result.equals(create_expected_data())
