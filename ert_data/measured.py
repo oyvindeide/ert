@@ -4,6 +4,8 @@ import pandas as pd
 
 from ert_data import loader
 
+_assert_msg = "ERROR: We've reached an unreachable state. Anything is possible. The limits were in our heads all along. Follow your dreams."
+
 
 class MeasuredData(object):
     def __init__(self, facade, keys, index_lists=None, load_data=True):
@@ -75,6 +77,9 @@ class MeasuredData(object):
         if len(index_lists) != len(observation_keys):
             raise ValueError("index list must be same length as observations keys")
 
+        # Because several observations can be linked to the same response we create
+        # a grouping to avoid reading the same response for each of the corresponding
+        # observations, as that is quite slow.
         key_map = defaultdict(list)
         for key in observation_keys:
             data_key = self._facade.get_data_key_for_obs_key(key)
@@ -86,9 +91,10 @@ class MeasuredData(object):
             obs_types = [
                 self._facade.get_impl_type_name_for_obs_key(key) for key in obs_keys
             ]
-            assert (
-                len(set(obs_types)) == 1
-            ), f"More than one observation type found for data key: {data_key}"
+            assert len(set(obs_types)) == 1, (
+                _assert_msg
+                + f"\nMore than one observation type found for data key: {data_key}"
+            )
             observation_type = obs_types[0]
             data_loader, obs_loader = loader.data_loader_factory(observation_type)
             if load_data:

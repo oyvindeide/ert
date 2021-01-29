@@ -28,7 +28,7 @@ def _set_multiindex(df):
     tuples = list(zip(*[df.columns.to_list(), df.columns.to_list()]))
     return pd.MultiIndex.from_tuples(tuples, names=["key_index", "data_index"])
 
-@pytest.mark.usefixtures("facade", "valid_dataframe", "measured_data_setup")
+
 @pytest.mark.parametrize("obs_type", [("GEN_OBS"), ("SUMMARY_OBS"), ("BLOCK_OBS")])
 def test_get_data(obs_type, monkeypatch, facade, valid_dataframe, measured_data_setup):
 

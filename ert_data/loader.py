@@ -12,10 +12,52 @@ def data_loader_factory(observation_type):
     elif observation_type == "SUMMARY_OBS":
         return load_summary_data, load_summary_obs
     elif observation_type == "BLOCK_OBS":
-        raise NotImplementedError
-        # return load_block_data
+        return load_block_data, load_block_obs
     else:
         raise TypeError("Unknown observation type: {}".format(observation_type))
+
+
+def load_block_data(facade, data_key, case_name):
+    """
+    load_block_data is a part of the data_loader_factory, and the other
+    methods returned by this factory, require case_name, so it is accepted
+    here as well.
+    """
+    obs_vector = facade.get_observations()["RFT_2006"]
+    loader = facade.create_plot_block_data_loader(obs_vector)
+
+    data = pd.DataFrame()
+    for report_step in obs_vector.getStepList().asList():
+
+        block_data = loader.load(facade.get_current_fs(), report_step)
+        data = data.append(
+            _get_block_measured(facade.get_ensemble_size(), block_data)
+        )
+
+    return data
+
+
+def load_block_obs(facade, observation_keys, case_name):
+    """
+    load_block_data is a part of the data_loader_factory, and the other
+    methods returned by this factory, require case_name, so it is accepted
+    here as well.
+    """
+    for observation_key in observation_keys:
+        obs_vector = facade.get_observations()[observation_key]
+        loader = facade.create_plot_block_data_loader(obs_vector)
+
+        data = pd.DataFrame()
+        for report_step in obs_vector.getStepList().asList():
+            obs_block = loader.getBlockObservation(report_step)
+
+            data = data.append(
+                pd.DataFrame([[obs_block.getValue(i) for i in obs_block]], index=["OBS"])
+            ).append(
+                pd.DataFrame([[obs_block.getStd(i) for i in obs_block]], index=["STD"])
+            )
+
+    return data
 
 
 def load_general_data(facade, data_key, case_name):
@@ -59,9 +101,7 @@ def load_general_obs(facade, observation_keys, case_name):
             data.append(
                 pd.DataFrame(
                     [node.get_data_points()], columns=index, index=["OBS"]
-                ).append(
-                    pd.DataFrame([node.get_std()], columns=index, index=["STD"])
-                )
+                ).append(pd.DataFrame([node.get_std()], columns=index, index=["STD"]))
             )
         data = pd.concat(data, axis=1)
         data = pd.concat({observation_key: data}, axis=1)
@@ -107,7 +147,6 @@ def _get_summary_observations(facade, data_key, case_name):
     # the regex.
     data = data.set_index(data.index.str.replace(r"\b" + data_key, "OBS", regex=True))
     data = data.set_index(data.index.str.replace("_" + data_key, ""))
-    data.columns.name = "key_index"
     return data
 
 
