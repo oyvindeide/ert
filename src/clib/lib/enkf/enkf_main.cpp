@@ -176,12 +176,6 @@ std::vector<std::string> get_observation_keys(py::object self) {
     return observations;
 }
 
-std::vector<std::string> get_parameter_keys(py::object self) {
-    auto enkf_main = ert::from_cwrap<enkf_main_type>(self);
-    return ensemble_config_keylist_from_var_type(
-        res_config_get_ensemble_config(enkf_main->res_config), PARAMETER);
-}
-
 namespace enkf_main {
 /**
   @brief Substitutes the sampled parameters into the runpath.
@@ -342,7 +336,6 @@ ERT_CLIB_SUBMODULE("enkf_main", m) {
         py::arg("source_report_step"), py::arg("node_list"),
         py::arg("iactive"));
     m.def("get_observation_keys", get_observation_keys);
-    m.def("get_parameter_keys", get_parameter_keys);
     m.def("load_from_run_context",
           [](int ens_size, py::object ensemble_config, py::object model_config,
              py::object ecl_config, std::vector<py::object> run_args_,
