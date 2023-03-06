@@ -78,19 +78,17 @@ class MultipleDataAssimilation(BaseRunModel):
         self.setPhaseName(phase_string, indeterminate=True)
 
         enumerated_weights = list(enumerate(weights))
-        starting_iteration = self._simulation_arguments["start_iteration"]
         restart_run = self._simulation_arguments["restart_run"]
         case_format = self._simulation_arguments["target_case"]
         prior_ensemble = self._simulation_arguments["prior_ensemble"]
 
         if restart_run:
-            assert starting_iteration > 0
             try:
                 prior_fs = self._storage.get_ensemble_by_name(prior_ensemble)
                 prior_context = self.ert().ensemble_context(
                     prior_fs,
                     self._simulation_arguments["active_realizations"],
-                    iteration=starting_iteration,
+                    iteration=prior_fs.iteration,
                 )
             except KeyError as err:
                 raise ErtRunError(
@@ -100,21 +98,19 @@ class MultipleDataAssimilation(BaseRunModel):
             prior_fs = self._storage.create_ensemble(
                 self._experiment_id,
                 ensemble_size=self._ert.getEnsembleSize(),
-                iteration=starting_iteration,
-                name=case_format % starting_iteration,
+                iteration=0,
+                name=case_format % 0,
             )
             prior_context = self.ert().ensemble_context(
                 prior_fs,
                 self._simulation_arguments["active_realizations"],
-                iteration=0,
+                iteration=prior_fs.iteration,
             )
             self.ert().sample_prior(
                 prior_context.sim_fs, prior_context.active_realizations
             )
-            self._simulateAndPostProcess(
-                prior_context, evaluator_server_config
-            )
-
+            self._simulateAndPostProcess(prior_context, evaluator_server_config)
+        starting_iteration = prior_fs.iteration + 1
         weights_to_run = enumerated_weights[max(starting_iteration - 1, 0) :]
 
         for iteration, weight in weights_to_run:
@@ -142,9 +138,7 @@ class MultipleDataAssimilation(BaseRunModel):
                 weight=weight,
             )
             self.ert().runWorkflows(HookRuntime.POST_UPDATE)
-            self._simulateAndPostProcess(
-                posterior_context, evaluator_server_config
-            )
+            self._simulateAndPostProcess(posterior_context, evaluator_server_config)
             prior_context = posterior_context
 
         self.setPhaseName("Post processing...", indeterminate=True)
