@@ -111,7 +111,7 @@ class MultipleDataAssimilation(BaseRunModel):
             self.ert().sample_prior(
                 prior_context.sim_fs, prior_context.active_realizations
             )
-            _, ensemble_id = self._simulateAndPostProcess(
+            self._simulateAndPostProcess(
                 prior_context, evaluator_server_config
             )
 
@@ -142,7 +142,7 @@ class MultipleDataAssimilation(BaseRunModel):
                 weight=weight,
             )
             self.ert().runWorkflows(HookRuntime.POST_UPDATE)
-            _, ensemble_id = self._simulateAndPostProcess(
+            self._simulateAndPostProcess(
                 posterior_context, evaluator_server_config
             )
             prior_context = posterior_context
