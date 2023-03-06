@@ -198,7 +198,7 @@ def test_that_the_ui_show_warnings_when_parameters_are_missing(qapp, tmp_path):
 
     args.config = "poly-no-gen-kw.ert"
     with add_gui_log_handler() as log_handler:
-        gui, _ = ert.gui.main._start_initial_gui_window(args, log_handler)
+        gui, _, _ = ert.gui.main._start_initial_gui_window(args, log_handler)
         combo_box = gui.findChild(QComboBox, name="Simulation_mode")
         assert combo_box.count() == 5
 
