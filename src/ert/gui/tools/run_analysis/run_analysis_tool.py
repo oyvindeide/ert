@@ -24,7 +24,7 @@ def analyse(ert, target_fs, source_fs):
             RealizationStateEnum.STATE_UNDEFINED,
         )
     ):
-        target_fs.getStateMap()[iens] = RealizationStateEnum.STATE_PARENT_FAILURE
+        target_fs.state_map[iens] = RealizationStateEnum.STATE_PARENT_FAILURE
     es_update.smootherUpdate(source_fs, target_fs, str(uuid.uuid4()))
 
 
