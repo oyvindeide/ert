@@ -12,7 +12,7 @@ from ert.shared.models import BaseRunModel, ErtRunError
 
 if TYPE_CHECKING:
     from ert._c_wrappers.enkf import RunContext
-    from ert.storage import EnsembleAccessor, StorageAccessor
+    from ert.storage import EnsembleAccessor, StorageAccessor, LocalEnsembleAccessor
 
 logger = logging.getLogger(__file__)
 
@@ -85,6 +85,7 @@ class MultipleDataAssimilation(BaseRunModel):
         if restart_run:
             try:
                 prior_fs = self._storage.get_ensemble_by_name(prior_ensemble)
+                assert isinstance(prior_fs, LocalEnsembleAccessor)
                 prior_context = self.ert().ensemble_context(
                     prior_fs,
                     self._simulation_arguments["active_realizations"],

@@ -8,7 +8,6 @@ import sys
 import threading
 import uuid
 import warnings
-
 from typing import Any
 
 from ert._c_wrappers.enkf import EnKFMain, ErtConfig
