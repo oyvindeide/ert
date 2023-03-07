@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, List
 from uuid import UUID
 
 from ert._c_wrappers.config.active_range import ActiveRange
@@ -13,7 +13,7 @@ from ert.shared.models.multiple_data_assimilation import MultipleDataAssimilatio
 from ert.shared.models.single_test_run import SingleTestRun
 
 if TYPE_CHECKING:
-    from ert.storage import EnsembleReader, StorageAccessor
+    from ert.storage import StorageAccessor
 
 
 def create_model(

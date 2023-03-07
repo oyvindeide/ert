@@ -12,13 +12,11 @@ from ert.gui.ertwidgets import (
 )
 from ert.gui.ertwidgets.copyablelabel import CopyableLabel
 from ert.gui.ertwidgets.models.activerealizationsmodel import ActiveRealizationsModel
-from ert.gui.ertwidgets.models.init_iter_value import IterValueModel
 from ert.gui.ertwidgets.models.targetcasemodel import TargetCaseModel
 from ert.gui.ertwidgets.models.valuemodel import ValueModel
 from ert.gui.ertwidgets.stringbox import StringBox
 from ert.libres_facade import LibresFacade
 from ert.shared.ide.keywords.definitions import (
-    IntegerArgument,
     NumberListStringArgument,
     ProperNameFormatArgument,
     RangeStringArgument,
