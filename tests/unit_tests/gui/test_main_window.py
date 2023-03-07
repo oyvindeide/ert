@@ -15,9 +15,9 @@ from qtpy.QtWidgets import (
     QComboBox,
     QMessageBox,
     QPushButton,
+    QSpinBox,
     QToolButton,
     QWidget,
-    QSpinBox
 )
 
 from ert._c_wrappers.enkf import EnKFMain, ErtConfig
@@ -26,7 +26,7 @@ from ert.gui.ertwidgets.caselist import AddRemoveWidget, CaseList
 from ert.gui.ertwidgets.caseselector import CaseSelector
 from ert.gui.ertwidgets.closabledialog import ClosableDialog
 from ert.gui.ertwidgets.validateddialog import ValidatedDialog
-from ert.gui.main import GUILogHandler, _setup_main_window, _get_or_create_default_case
+from ert.gui.main import GUILogHandler, _get_or_create_default_case, _setup_main_window
 from ert.gui.simulation.ensemble_experiment_panel import EnsembleExperimentPanel
 from ert.gui.simulation.run_dialog import RunDialog
 from ert.gui.simulation.simulation_panel import SimulationPanel
@@ -39,7 +39,7 @@ from ert.gui.tools.plot.data_type_keys_widget import DataTypeKeysWidget
 from ert.gui.tools.plot.plot_case_selection_widget import CaseSelectionWidget
 from ert.gui.tools.plot.plot_window import PlotWindow
 from ert.services import StorageService
-from ert.shared.models import MultipleDataAssimilation, EnsembleExperiment
+from ert.shared.models import EnsembleExperiment, MultipleDataAssimilation
 from ert.storage import open_storage
 
 
@@ -79,18 +79,14 @@ def opened_main_window(source_root, tmpdir_factory, request):
             yield gui, poly_case.getEnsembleSize()
 
 
-@pytest.mark.usefixtures("use_tmpdir")
-@pytest.fixture(scope="function")
-def opened_main_window_clean(source_root, tmpdir_factory, request):
+@pytest.fixture
+def opened_main_window_clean(source_root, tmpdir):
     with pytest.MonkeyPatch.context() as mp:
-        tmp_path = tmpdir_factory.mktemp("test-data")
-
-        request.addfinalizer(lambda: shutil.rmtree(tmp_path))
         shutil.copytree(
             os.path.join(source_root, "test-data", "poly_example"),
-            tmp_path / "test_data",
+            tmpdir / "test_data",
         )
-        mp.chdir(tmp_path / "test_data")
+        mp.chdir(tmpdir / "test_data")
 
         with fileinput.input("poly.ert", inplace=True) as fin:
             for line in fin:
@@ -561,6 +557,47 @@ def test_that_inversion_type_can_be_set_from_gui(qtbot, opened_main_window):
     qtbot.mouseClick(es_edit.findChild(QToolButton), Qt.LeftButton, delay=1)
 
 
+def test_that_the_load_results_manually_tool_works(
+    esmda_has_run, opened_main_window, qtbot
+):
+    gui, ensemble_size = opened_main_window
+
+    def handle_load_results_dialog():
+        qtbot.waitUntil(
+            lambda: gui.findChild(ClosableDialog, name="load_results_manually_tool")
+            is not None
+        )
+        dialog = gui.findChild(ClosableDialog, name="load_results_manually_tool")
+        panel = dialog.findChild(LoadResultsPanel)
+        assert isinstance(panel, LoadResultsPanel)
+
+        case_selector = panel.findChild(CaseSelector)
+        assert isinstance(case_selector, CaseSelector)
+        index = case_selector.findText("default", Qt.MatchFlag.MatchContains)
+        assert index != -1
+        case_selector.setCurrentIndex(index)
+
+        # click on "Load"
+        load_button = panel.parent().findChild(QPushButton, name="Load")
+        assert isinstance(load_button, QPushButton)
+
+        # Verify that the messagebox is the success kind
+        def handle_popup_dialog():
+            messagebox = QApplication.activeModalWidget()
+            assert isinstance(messagebox, QMessageBox)
+            assert messagebox.text() == "Successfully loaded all realisations"
+            ok_button = messagebox.button(QMessageBox.Ok)
+            qtbot.mouseClick(ok_button, Qt.LeftButton)
+
+        QTimer.singleShot(1000, handle_popup_dialog)
+        qtbot.mouseClick(load_button, Qt.LeftButton)
+        dialog.close()
+
+    QTimer.singleShot(1000, handle_load_results_dialog)
+    load_results_tool = gui.tools["Load results manually"]
+    load_results_tool.trigger()
+
+
 @pytest.mark.usefixtures("use_tmpdir")
 def test_that_the_manage_cases_tool_can_be_used_with_clean_storage(
     opened_main_window_clean, qtbot
@@ -618,53 +655,3 @@ def test_that_the_manage_cases_tool_can_be_used_with_clean_storage(
     QTimer.singleShot(1000, handle_dialog)
     manage_tool = gui.tools["Manage cases"]
     manage_tool.trigger()
-
-
-@pytest.mark.usefixtures("use_tmpdir")
-def test_that_the_load_results_manually_tool_works(
-    esmda_has_run, opened_main_window, qtbot
-):
-    gui, ensemble_size = opened_main_window
-
-    # Add a new case
-    gui.notifier.storage.create_ensemble(
-        gui.notifier.storage.create_experiment(),
-        name="new_case_for_load",
-        ensemble_size=ensemble_size,
-    )
-    gui.notifier.ertChanged.emit()
-
-    def handle_load_results_dialog():
-        qtbot.waitUntil(
-            lambda: gui.findChild(ClosableDialog, name="load_results_manually_tool")
-            is not None
-        )
-        dialog = gui.findChild(ClosableDialog, name="load_results_manually_tool")
-        panel = dialog.findChild(LoadResultsPanel)
-        assert isinstance(panel, LoadResultsPanel)
-
-        case_selector = panel.findChild(CaseSelector)
-        assert isinstance(case_selector, CaseSelector)
-        index = case_selector.findText("new_case_for_load", Qt.MatchFlag.MatchContains)
-        assert index != -1
-        case_selector.setCurrentIndex(index)
-
-        # click on "Load"
-        load_button = panel.parent().findChild(QPushButton, name="Load")
-        assert isinstance(load_button, QPushButton)
-
-        # Verify that the messagebox is the success kind
-        def handle_popup_dialog():
-            messagebox = QApplication.activeModalWidget()
-            assert isinstance(messagebox, QMessageBox)
-            assert messagebox.text() == "Successfully loaded all realisations"
-            ok_button = messagebox.button(QMessageBox.Ok)
-            qtbot.mouseClick(ok_button, Qt.LeftButton)
-
-        QTimer.singleShot(1000, handle_popup_dialog)
-        qtbot.mouseClick(load_button, Qt.LeftButton)
-        dialog.close()
-
-    QTimer.singleShot(1000, handle_load_results_dialog)
-    load_results_tool = gui.tools["Load results manually"]
-    load_results_tool.trigger()
