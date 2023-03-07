@@ -2,7 +2,6 @@ import fileinput
 import os.path
 import shutil
 import stat
-from pathlib import Path
 from textwrap import dedent
 from typing import List
 from unittest.mock import Mock
@@ -27,7 +26,7 @@ from ert.gui.ertwidgets.caselist import AddRemoveWidget, CaseList
 from ert.gui.ertwidgets.caseselector import CaseSelector
 from ert.gui.ertwidgets.closabledialog import ClosableDialog
 from ert.gui.ertwidgets.validateddialog import ValidatedDialog
-from ert.gui.main import GUILogHandler, _setup_main_window
+from ert.gui.main import GUILogHandler, _setup_main_window, _get_or_create_default_case
 from ert.gui.simulation.ensemble_experiment_panel import EnsembleExperimentPanel
 from ert.gui.simulation.run_dialog import RunDialog
 from ert.gui.simulation.simulation_panel import SimulationPanel
@@ -74,6 +73,9 @@ def opened_main_window(source_root, tmpdir_factory, request):
         ), open_storage(poly_case.ert_config.ens_path, mode="w") as storage:
             gui = _setup_main_window(poly_case, args_mock, GUILogHandler())
             gui.notifier.set_storage(storage)
+            gui.notifier.set_current_case(
+                _get_or_create_default_case(storage, poly_case.getEnsembleSize())
+            )
             yield gui, poly_case.getEnsembleSize()
 
 
@@ -108,8 +110,8 @@ def opened_main_window_clean(source_root, tmpdir_factory, request):
             project=os.path.abspath(poly_case.ert_config.ens_path),
         ), open_storage(poly_case.ert_config.ens_path, mode="w") as storage:
             gui = _setup_main_window(poly_case, args_mock, GUILogHandler())
-            gui.notifier.set_storage(storage)
-            yield gui
+            gui.notifier.set_storage(storage),
+        yield gui
 
 
 @pytest.mark.usefixtures("use_tmpdir, opened_main_window")
@@ -207,6 +209,7 @@ def ensemble_experiment_has_run(opened_main_window, run_experiment, request):
     QTimer.singleShot(1000, handle_dialog)
     manage_tool = gui.tools["Manage cases"]
     manage_tool.trigger()
+    gui.notifier.set_current_case(gui.notifier.storage.get_ensemble_by_name("iter-0"))
 
     with open("poly_eval.py", "w", encoding="utf-8") as f:
         f.write(
@@ -270,6 +273,7 @@ def test_that_the_plot_window_contains_the_expected_elements(
         combo_box.setCurrentIndex(i)
         case_names.append(combo_box.currentText())
     assert sorted(case_names) == [
+        "default",
         "default_0",
         "default_1",
         "default_2",
@@ -354,7 +358,7 @@ def test_that_the_manage_cases_tool_can_be_used(
         assert isinstance(case_list, CaseList)
 
         # The case list should contain the expected cases
-        assert case_list._list.count() == 4
+        assert case_list._list.count() == 5
 
         # Click add case and name it "new_case"
         def handle_add_dialog():
@@ -367,7 +371,7 @@ def test_that_the_manage_cases_tool_can_be_used(
         qtbot.mouseClick(create_widget.addButton, Qt.LeftButton)
 
         # The list should now contain "new_case"
-        assert case_list._list.count() == 5
+        assert case_list._list.count() == 6
 
         # Go to the "initialize from scratch" panel
         cases_panel.setCurrentIndex(1)
@@ -413,15 +417,11 @@ def test_that_the_manual_analysis_tool_works(
         run_panel = analysis_tool._run_widget
         run_panel.target_case_text.setText("iter-1")
 
-        # Set source case is "iter-0"
+        # Set source case to "iter-0"
         case_selector = run_panel.source_case_selector
         index = case_selector.findText("iter-0", Qt.MatchFlag.MatchContains)
         case_selector.setCurrentIndex(index)
         assert case_selector.currentText().startswith("iter-0")
-
-        # run_panel.target_case_text.setText("iter-0")
-        # case_selector = run_panel.source_case_selector
-        # assert case_selector.currentText() == "iter-0"
 
         # Click on "Run" and click ok on the message box
         def handle_dialog():
@@ -451,7 +451,7 @@ def test_that_the_manual_analysis_tool_works(
         assert current_tab.objectName() == "create_new_case_tab"
         case_list = current_tab.findChild(CaseList)
         assert isinstance(case_list, CaseList)
-        assert len(case_list._list.findItems("iter-1", Qt.MatchFlag.MatchExactly)) == 1
+        assert len(case_list._list.findItems("iter-1", Qt.MatchFlag.MatchContains)) == 1
         dialog.close()
 
     QTimer.singleShot(1000, handle_manage_dialog)
@@ -514,8 +514,9 @@ def test_that_the_manual_analysis_tool_works(
     qtbot.mouseClick(start_simulation, Qt.LeftButton)
 
     facade = simulation_panel.facade
-    df_prior = facade.load_all_gen_kw_data("iter-0")
-    df_posterior = facade.load_all_gen_kw_data("iter-1")
+    storage = gui.notifier.storage
+    df_prior = facade.load_all_gen_kw_data(storage.get_ensemble_by_name("iter-0"))
+    df_posterior = facade.load_all_gen_kw_data(storage.get_ensemble_by_name("iter-1"))
 
     # We expect that ERT's update step lowers the
     # generalized variance for the parameters.
@@ -581,7 +582,7 @@ def test_that_the_manage_cases_tool_can_be_used_with_clean_storage(
         case_list = current_tab.findChild(CaseList)
         assert isinstance(case_list, CaseList)
 
-        assert case_list._list.count() == 1
+        assert case_list._list.count() == 0
 
         # Click add case and name it "new_case"
         def handle_add_dialog():
@@ -594,7 +595,7 @@ def test_that_the_manage_cases_tool_can_be_used_with_clean_storage(
         qtbot.mouseClick(create_widget.addButton, Qt.LeftButton)
 
         # The list should now contain "new_case"
-        assert case_list._list.count() == 2
+        assert case_list._list.count() == 1
         assert case_list._list.item(0).data(Qt.UserRole).name == "new_case"
 
         # Go to the "initialize from scratch" panel
