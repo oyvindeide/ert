@@ -54,8 +54,13 @@ DEFINE: "DEFINE"
 
 FORWARD_MODEL_NAME: UNQUOTED_ARGUMENT
 
+named_argument: UNQUOTED_ARGUMENT ":" arg
+parameter_argument: named_argument | arg
+
+PARAMETER: "GEN_KW" | "SURFACE" | "FIELD"
 arg: STRING | UNQUOTED
 inst: FORWARD_MODEL FORWARD_MODEL_NAME forward_model_arguments? -> job_instruction
+    | PARAMETER parameter_argument* -> parameter_instruction
     | KEYWORD_NAME arg* -> regular_instruction
 
 instruction: inst NEWLINE | NEWLINE
@@ -76,6 +81,9 @@ class ArgumentToStringTransformer(Transformer):
 
     def arg(self, rule: List[FileContextToken]) -> FileContextToken:
         return rule[0]
+
+    def named_argument(self, rule: List[FileContextToken]) -> Tuple[FileContextToken, FileContextToken]:
+        return (rule[0], rule[2])
 
     def argument_value(self, rule: List[FileContextToken]) -> FileContextToken:
         return FileContextToken.join_tokens(rule, separator="")
@@ -117,6 +125,9 @@ class InstructionTransformer(Transformer):
         return children
 
     def job_instruction(self, children):
+        return children
+
+    def parameter_instruction(self, children):
         return children
 
     def NEWLINE(self, _token):
@@ -193,7 +204,10 @@ def _tree_to_dict(
 
         try:
             args = constraints.join_args(args)
-            args = _substitute_args(args, constraints, defines)
+            if isinstance(args, tuple):
+                pass # TODO
+            else:
+                args = _substitute_args(args, constraints, defines)
             value_list = constraints.apply_constraints(args, kw, cwd)
 
             arglist = config_dict.get(kw, [])

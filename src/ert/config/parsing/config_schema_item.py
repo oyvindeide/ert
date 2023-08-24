@@ -95,6 +95,7 @@ class SchemaItem(BaseModel):
 
         if not len(self.type_map) > index:
             return ContextString(str(token), token, keyword)
+        if isinstance()
         val_type = self.type_map[index]
         if val_type is None:
             return ContextString(str(token), token, keyword)
