@@ -10,7 +10,7 @@ from ecl.summary import EclSum
 
 from ert._clib._read_summary import read_summary  # pylint: disable=import-error
 
-from .response_config import ResponseConfig
+from .response_config import ResponseConfig, PlotSettings
 
 if TYPE_CHECKING:
     from typing import List, Optional
@@ -28,6 +28,10 @@ class SummaryConfig(ResponseConfig):
     def __post_init__(self) -> None:
         if isinstance(self.refcase, list):
             self.refcase = {datetime.fromisoformat(val) for val in self.refcase}
+
+    @property
+    def plot_settings(self):
+        return PlotSettings(name="name", keys=self.keys)
 
     def read_from_file(self, run_path: str, iens: int) -> xr.Dataset:
         filename = self.input_file.replace("<IENS>", str(iens))

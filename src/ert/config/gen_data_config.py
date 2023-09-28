@@ -11,7 +11,7 @@ from ert.validation import rangestring_to_list
 
 from ._option_dict import option_dict
 from .parsing import ConfigValidationError, ErrorInfo
-from .response_config import ResponseConfig
+from .response_config import ResponseConfig, PlotSettings
 
 
 @dataclass
@@ -22,6 +22,10 @@ class GenDataConfig(ResponseConfig):
     def __post_init__(self) -> None:
         if isinstance(self.report_steps, list):
             self.report_steps = list(set(self.report_steps))
+
+    @property
+    def plot_settings(self):
+        return PlotSettings(name="report_step", keys=self.report_steps if self.report_steps else [0], key_type=int)
 
     @classmethod
     def from_config_list(cls, gen_data: List[str]) -> Self:

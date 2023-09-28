@@ -29,8 +29,6 @@ from ert.gui.simulation.simulation_panel import SimulationPanel
 from ert.gui.tools.manage_cases.case_init_configuration import (
     CaseInitializationConfigurationPanel,
 )
-from ert.gui.tools.plot.data_type_keys_widget import DataTypeKeysWidget
-from ert.gui.tools.plot.plot_case_selection_widget import CaseSelectionWidget
 from ert.gui.tools.plot.plot_window import PlotWindow
 from ert.run_models import SingleTestRun
 

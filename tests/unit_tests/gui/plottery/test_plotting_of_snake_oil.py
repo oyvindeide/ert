@@ -3,7 +3,6 @@ from unittest.mock import Mock
 import pytest
 
 from ert.gui.main import GUILogHandler, _setup_main_window
-from ert.gui.tools.plot.data_type_keys_widget import DataTypeKeysWidget
 from ert.gui.tools.plot.plot_window import (
     CROSS_CASE_STATISTICS,
     DISTRIBUTION,
