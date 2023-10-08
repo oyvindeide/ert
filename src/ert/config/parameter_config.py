@@ -13,6 +13,13 @@ if TYPE_CHECKING:
     from ert.storage import EnsembleReader
 
 
+@dataclasses.dataclass
+class PlotSettings:
+    name: str
+    keys: List[any]
+    key_type: str = str
+
+
 class CustomDict(dict):  # type: ignore
     """Used for converting types that can not be serialized
     directly to json
@@ -71,3 +78,7 @@ class ParameterConfig(ABC):
         experiment_path: Path,
     ) -> None:
         pass
+
+    @property
+    def plot_settings(self):
+        return PlotSettings(name="name", keys=[self.name])

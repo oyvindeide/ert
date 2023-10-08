@@ -19,6 +19,7 @@ from ._option_dict import option_dict
 from ._str_to_bool import str_to_bool
 from .parameter_config import ParameterConfig
 from .parsing import ConfigValidationError, ConfigWarning, ErrorInfo
+from .parameter_config import PlotSettings
 
 if TYPE_CHECKING:
     import numpy.typing as npt
@@ -63,6 +64,10 @@ class GenKwConfig(ParameterConfig):
             self.transfer_functions.append(self._parse_transfer_function(e))
 
         self._validate()
+
+    @property
+    def plot_settings(self):
+        return PlotSettings(name="names", keys=[func.name for func in self.transfer_functions])
 
     @property
     def size(self) -> int:

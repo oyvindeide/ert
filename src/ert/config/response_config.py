@@ -13,6 +13,7 @@ class PlotSettings:
     keys: List[any]
     key_type: str = str
 
+
 @dataclasses.dataclass
 class ResponseConfig(ABC):
     name: str
