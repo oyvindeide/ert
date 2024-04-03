@@ -199,7 +199,7 @@ class LocalEnsemble(BaseMode):
             for response in self.experiment.response_configuration
         )
 
-    def is_initalized(self) -> bool:
+    def is_initialized(self) -> bool:
         """
         Check that the ensemble has all parameters present in at least one realization
         """
