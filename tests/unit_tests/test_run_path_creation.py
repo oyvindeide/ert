@@ -283,9 +283,9 @@ def test_that_sampling_prior_makes_initialized_fs(storage):
         ensemble_size=ert_config.model_config.num_realizations,
     )
 
-    assert not prior_ensemble.is_initialized()
+    assert not prior_ensemble.is_initialized
     sample_prior(prior_ensemble, [0])
-    assert prior_ensemble.is_initialized()
+    assert prior_ensemble.is_initialized
 
 
 @pytest.mark.parametrize(
