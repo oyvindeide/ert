@@ -288,4 +288,4 @@ def test_that_the_states_are_set_correctly():
     )
     facade.load_from_forward_model(new_ensemble, realizations, 0)
     assert not new_ensemble.is_initialized
-    assert new_ensemble.has_data()
+    assert new_ensemble.has_data

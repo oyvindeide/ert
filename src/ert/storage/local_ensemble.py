@@ -212,6 +212,7 @@ class LocalEnsemble(BaseMode):
             for i in range(self.ensemble_size)
         )
 
+    @property
     def has_data(self) -> bool:
         """
         Check that the ensemble has all responses present in at least one realization

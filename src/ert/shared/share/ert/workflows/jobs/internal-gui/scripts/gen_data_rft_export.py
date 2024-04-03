@@ -144,7 +144,7 @@ class GenDataRFTCSVExportJob(ErtPlugin):
                     f"The ensemble '{ensemble_name}' does not exist!"
                 ) from exc
 
-            if not ensemble.has_data():
+            if not ensemble.has_data:
                 raise UserWarning(
                     f"The ensemble '{ensemble_name}' does not have any data!"
                 )

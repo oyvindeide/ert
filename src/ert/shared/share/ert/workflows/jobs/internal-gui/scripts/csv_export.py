@@ -120,7 +120,7 @@ class CSVExportJob(ErtPlugin):
             except KeyError as exc:
                 raise UserWarning(f"The ensemble '{ensemble}' does not exist!") from exc
 
-            if not ensemble.has_data():
+            if not ensemble.has_data:
                 raise UserWarning(f"The ensemble '{ensemble}' does not have any data!")
 
             ensemble_data = ensemble.load_all_gen_kw_data()
@@ -226,6 +226,6 @@ class CSVExportJob(ErtPlugin):
 
     def getAllEnsembleList(self):
         all_ensemble_list = [
-            ensemble.name for ensemble in self.storage.ensembles if ensemble.has_data()
+            ensemble.name for ensemble in self.storage.ensembles if ensemble.has_data
         ]
         return all_ensemble_list
