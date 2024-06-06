@@ -717,7 +717,7 @@ def _write_update_report(
             f"Deactivated observations - missing respons(es): {obs_info[ObservationStatus.MISSING_RESPONSE]}\n"
         )
         fout.write(
-            f"Deactivated observations - ensemble_std > STD_CUTOFF: {obs_info[ObservationStatus.STD_CUTOFF]}\n"
+            f"Deactivated observations - ensemble_std < STD_CUTOFF: {obs_info[ObservationStatus.STD_CUTOFF]}\n"
         )
         fout.write(
             f"Deactivated observations - outlier: {obs_info[ObservationStatus.OUTLIER]}\n"

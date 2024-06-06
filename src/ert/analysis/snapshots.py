@@ -104,7 +104,7 @@ class SmootherSnapshot(BaseModel):
                     for val in self.update_step_snapshots
                 )
             ),
-            "Deactivated observations - ensemble_std > STD_CUTOFF": str(
+            "Deactivated observations - ensemble_std < STD_CUTOFF": str(
                 sum(
                     val.status == ObservationStatus.STD_CUTOFF
                     for val in self.update_step_snapshots

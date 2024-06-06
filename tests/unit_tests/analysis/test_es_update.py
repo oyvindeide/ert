@@ -222,7 +222,7 @@ def test_update_report_with_different_observation_status_from_smoother_update(
     assert f"Active observations: {active}" in report
     assert f"Deactivated observations - missing respons(es): {missing}" in report
     assert (
-        f"Deactivated observations - ensemble_std > STD_CUTOFF: {std_cutoff}" in report
+        f"Deactivated observations - ensemble_std < STD_CUTOFF: {std_cutoff}" in report
     )
     assert f"Deactivated observations - outlier: {outliers}" in report
 
