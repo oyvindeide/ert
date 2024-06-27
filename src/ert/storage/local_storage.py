@@ -273,11 +273,6 @@ class LocalStorage(BaseMode):
         the storage.
         """
 
-        if self.can_write:
-            for ens in self._ensembles.values():
-                ens.unify_responses()
-                ens.unify_parameters()
-
         self._ensembles.clear()
         self._experiments.clear()
 
@@ -455,6 +450,7 @@ class LocalStorage(BaseMode):
             assert isinstance(version, int)
             self._index = self._load_index()
             if version == 0:
+                print(f"Found storage with version: 0 at: {self.path}")
                 self._release_lock()
                 block_fs.migrate(self.path)
                 self._acquire_lock()
@@ -464,6 +460,7 @@ class LocalStorage(BaseMode):
                     f"Cannot migrate storage '{self.path}'. Storage version {version} is newer than the current version {_LOCAL_STORAGE_VERSION}, upgrade ert to continue, or run with a different ENSPATH"
                 )
             elif version < _LOCAL_STORAGE_VERSION:
+                print(f"Found storage with version: {version} at: {self.path}")
                 migrations = list(enumerate([to2, to3, to4, to5, to6], start=1))
                 for from_version, migration in migrations[version - 1 :]:
                     print(f"* Updating storage to version: {from_version+1}")
@@ -471,19 +468,6 @@ class LocalStorage(BaseMode):
                     self._add_migration_information(
                         from_version, from_version + 1, migration.info
                     )
-
-                # It is not necessarily initialized when this is called
-                # so we can't use self._experiments
-                self.refresh()
-                for exp in self._experiments.values():
-                    # Clears the @property cache
-                    # so that they are refreshed, and no
-                    # longer pointing to an outdated
-                    # value of the old non-migrated storage
-                    if exp.observations:
-                        del exp.observations
-                    if exp.observation_keys:
-                        del exp.observation_keys
 
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error(
