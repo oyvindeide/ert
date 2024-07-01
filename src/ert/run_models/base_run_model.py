@@ -648,7 +648,6 @@ class BaseRunModel:
 
         successful_realizations = self.run_ensemble_evaluator(
             run_args,
-            iteration,
             ensemble.experiment_id,
             ensemble,
             evaluator_server_config,
