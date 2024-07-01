@@ -28,6 +28,7 @@ def create_runpath(
             experiment_id,
             name="default",
             ensemble_size=ert_config.model_config.num_realizations,
+            iteration=iteration,
         )
 
     runpaths = Runpaths(
@@ -36,9 +37,7 @@ def create_runpath(
         filename=str(ert_config.runpath_file),
         substitution_list=ert_config.substitution_list,
     )
-    run_args = create_run_arguments(
-        runpaths, [True] * ert_config.model_config.num_realizations, ensemble
-    )
+    run_args = create_run_arguments(runpaths, active_mask, ensemble)
 
     sample_prior(
         ensemble,
