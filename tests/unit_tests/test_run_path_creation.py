@@ -46,7 +46,6 @@ def test_that_run_template_replace_symlink_does_not_write_to_source(
     os.symlink("start.txt", run_path / "result.txt")
     create_run_path(
         run_arg,
-        prior_ensemble.iteration,
         prior_ensemble,
         ert_config,
         run_paths(ert_config),
@@ -84,7 +83,6 @@ def test_run_template_replace_in_file_with_custom_define(
     run_arg = run_args(ert_config, prior_ensemble)
     create_run_path(
         run_arg,
-        prior_ensemble.iteration,
         prior_ensemble,
         ert_config,
         run_paths(ert_config),
@@ -127,7 +125,6 @@ def test_run_template_replace_in_file(
     run_arg = run_args(ert_config, prior_ensemble)
     create_run_path(
         run_arg,
-        prior_ensemble.iteration,
         prior_ensemble,
         ert_config,
         run_paths(ert_config),
@@ -166,7 +163,6 @@ def test_run_template_replace_in_ecl(
     run_arg = run_args(ert_config, prior_ensemble)
     create_run_path(
         run_arg,
-        prior_ensemble.iteration,
         prior_ensemble,
         ert_config,
         run_paths(ert_config),
@@ -214,7 +210,6 @@ def test_run_template_replace_in_ecl_data_file(
     run_arg = run_args(ert_config, prior_ensemble)
     create_run_path(
         run_arg,
-        prior_ensemble.iteration,
         prior_ensemble,
         ert_config,
         run_paths(ert_config),
@@ -250,7 +245,6 @@ def test_that_error_is_raised_when_data_file_is_badly_encoded(
     ):
         create_run_path(
             run_args(ert_config, prior_ensemble),
-            prior_ensemble.iteration,
             prior_ensemble,
             ert_config,
             run_paths(ert_config),
@@ -280,7 +274,6 @@ def test_run_template_replace_in_file_name(prior_ensemble, run_args, run_paths):
     run_arg = run_args(ert_config, prior_ensemble)
     create_run_path(
         run_arg,
-        prior_ensemble.iteration,
         prior_ensemble,
         ert_config,
         run_paths(ert_config),
@@ -392,7 +385,6 @@ def test_that_deprecated_runpath_substitution_remain_valid(
     run_arg = run_args(ert_config, prior_ensemble, 2)
     create_run_path(
         run_arg,
-        prior_ensemble.iteration,
         prior_ensemble,
         ert_config,
         run_paths(ert_config),
@@ -432,7 +424,6 @@ def test_write_snakeoil_runpath_file(snake_oil_case, storage, itr, run_args, run
     run_arg = run_args(ert_config, prior_ensemble)
     create_run_path(
         run_arg,
-        prior_ensemble.iteration,
         prior_ensemble,
         ert_config,
         run_paths(ert_config),
@@ -482,7 +473,6 @@ def test_assert_export(prior_ensemble, run_args, run_paths):
     run_arg = run_args(ert_config, prior_ensemble)
     create_run_path(
         run_arg,
-        prior_ensemble.iteration,
         prior_ensemble,
         ert_config,
         run_paths(ert_config),
@@ -512,9 +502,7 @@ def _create_runpath(ert_config: ErtConfig, storage: Storage) -> None:
         substitution_list=ert_config.substitution_list,
     )
     create_run_path(
-        create_run_arguments(
-            run_paths, [True] * ensemble.ensemble_size, ensemble.iteration, ensemble
-        ),
+        create_run_arguments(run_paths, [True] * ensemble.ensemble_size, ensemble),
         iteration,
         ensemble,
         ert_config,

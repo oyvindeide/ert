@@ -47,7 +47,6 @@ def create_runpath(
     )
     create_run_path(
         run_args,
-        iteration,
         ensemble,
         ert_config,
         runpaths,

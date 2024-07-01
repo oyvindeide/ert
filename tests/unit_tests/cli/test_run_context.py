@@ -52,8 +52,10 @@ def test_that_all_iterations_gets_correct_name_and_iteration_number(
 
     # Find all the ensemble_context calls and fetch the ensemble name and
     # iteration number
-    calls = set(
-        (x[1][2].name, x[1][1]) for x in evaluate_mock.mock_calls if len(x) == 3
+    calls = (
+        (x[1][1].name, x[1][1].iteration)
+        for x in evaluate_mock.mock_calls
+        if len(x) == 3
     )
     assert ("target_0", 0) in calls
     assert ("target_1", 1) in calls

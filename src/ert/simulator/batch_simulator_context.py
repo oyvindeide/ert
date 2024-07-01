@@ -129,7 +129,6 @@ class BatchContext:
         )
         create_run_path(
             self.run_args,
-            self.itr,
             self.ensemble,
             ert_config,
             run_paths,

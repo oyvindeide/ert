@@ -627,15 +627,14 @@ class BaseRunModel:
     def _evaluate_and_postprocess(
         self,
         run_args: List[RunArg],
-        iteration: int,
         ensemble: Ensemble,
         evaluator_server_config: EvaluatorServerConfig,
     ) -> int:
+        iteration = ensemble.iteration
         phase_string = f"Running simulation for iteration: {iteration}"
         self.setPhase(iteration, phase_string)
         create_run_path(
             run_args,
-            iteration,
             ensemble,
             self.ert_config,
             self.run_paths,

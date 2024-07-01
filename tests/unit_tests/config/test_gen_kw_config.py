@@ -230,7 +230,6 @@ def test_gen_kw_is_log_or_not(
         sample_prior(prior_ensemble, [0])
         create_run_path(
             run_args(ert_config, prior_ensemble),
-            prior_ensemble.iteration,
             prior_ensemble,
             ert_config,
             run_paths(ert_config),

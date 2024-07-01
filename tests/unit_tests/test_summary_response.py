@@ -41,7 +41,6 @@ def test_load_summary_response_restart_not_zero(
 
         create_run_path(
             run_args(ert_config, ensemble),
-            ensemble.iteration,
             ensemble,
             ert_config,
             run_paths(ert_config),

@@ -75,7 +75,6 @@ class EvaluateEnsemble(BaseRunModel):
         self.setPhaseCount(phase_count)
         self._evaluate_and_postprocess(
             prior_args,
-            ensemble.iteration,
             ensemble,
             evaluator_server_config,
         )

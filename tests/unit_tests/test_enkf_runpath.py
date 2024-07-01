@@ -21,7 +21,6 @@ def test_with_gen_kw(storage, run_paths, run_args):
     sample_prior(prior_ensemble, [0])
     create_run_path(
         run_args(ert_config, prior_ensemble, 1),
-        prior_ensemble.iteration,
         prior_ensemble,
         ert_config,
         run_paths(ert_config),
@@ -45,7 +44,6 @@ def test_without_gen_kw(prior_ensemble, run_args, run_paths):
     sample_prior(prior_ensemble, [0])
     create_run_path(
         run_args(ert_config, prior_ensemble, 1),
-        prior_ensemble.iteration,
         prior_ensemble,
         ert_config,
         run_paths(ert_config),
@@ -71,7 +69,6 @@ def test_jobs_file_is_backed_up(storage, run_args, run_paths):
     sample_prior(prior_ensemble, [0])
     create_run_path(
         run_arg,
-        prior_ensemble.iteration,
         prior_ensemble,
         ert_config,
         run_paths(ert_config),
@@ -79,7 +76,6 @@ def test_jobs_file_is_backed_up(storage, run_args, run_paths):
     assert os.path.exists("storage/snake_oil/runpath/realization-0/iter-0/jobs.json")
     create_run_path(
         run_arg,
-        prior_ensemble.iteration,
         prior_ensemble,
         ert_config,
         run_paths(ert_config),

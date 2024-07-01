@@ -28,7 +28,6 @@ def setup_case(storage, use_tmpdir, run_args, run_paths):
         )
         create_run_path(
             run_args(ert_config, prior_ensemble),
-            prior_ensemble.iteration,
             prior_ensemble,
             ert_config,
             run_paths(ert_config),
@@ -134,7 +133,6 @@ def test_load_forward_model_summary(
 
     create_run_path(
         run_args(ert_config, prior_ensemble),
-        prior_ensemble.iteration,
         prior_ensemble,
         ert_config,
         run_paths(ert_config),
@@ -246,7 +244,6 @@ def test_loading_gen_data_without_restart(storage, run_paths, run_args):
 
     create_run_path(
         run_args(ert_config, prior_ensemble),
-        prior_ensemble.iteration,
         prior_ensemble,
         ert_config,
         run_paths(ert_config),

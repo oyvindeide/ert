@@ -132,7 +132,6 @@ class MultipleDataAssimilation(BaseRunModel):
             )
             self._evaluate_and_postprocess(
                 prior_args,
-                prior.iteration,
                 prior,
                 evaluator_server_config,
             )
@@ -182,7 +181,6 @@ class MultipleDataAssimilation(BaseRunModel):
 
             self._evaluate_and_postprocess(
                 posterior_args,
-                posterior.iteration,
                 posterior,
                 evaluator_server_config,
             )

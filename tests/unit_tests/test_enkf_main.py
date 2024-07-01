@@ -82,7 +82,6 @@ def test_assert_symlink_deleted(snake_oil_field_example, storage, run_paths):
     sample_prior(prior_ensemble, range(prior_ensemble.ensemble_size))
     create_run_path(
         run_args,
-        prior_ensemble.iteration,
         prior_ensemble,
         config,
         runpaths,
@@ -99,7 +98,6 @@ def test_assert_symlink_deleted(snake_oil_field_example, storage, run_paths):
     # recreate directory structure
     create_run_path(
         run_args,
-        prior_ensemble.iteration,
         prior_ensemble,
         config,
         runpaths,
