@@ -510,7 +510,6 @@ class BaseRunModel:
     def run_ensemble_evaluator(
         self,
         run_args: List[RunArg],
-        iteration: int,
         experiment_id: uuid.UUID,
         ensemble: Ensemble,
         ee_config: EvaluatorServerConfig,
@@ -523,7 +522,7 @@ class BaseRunModel:
         evaluator = EnsembleEvaluator(
             ee_ensemble,
             ee_config,
-            iteration,
+            ensemble.iteration,
         )
         evaluator.start_running()
 

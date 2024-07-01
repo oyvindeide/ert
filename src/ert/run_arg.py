@@ -20,7 +20,6 @@ class RunArg:
     active: bool = True
     # Below here is legacy related to Everest
     queue_index: Optional[int] = None
-    submitted: bool = False
 
 
 def create_run_arguments(
