@@ -182,7 +182,7 @@ class IteratedEnsembleSmoother(BaseRunModel):
             posterior_args = create_run_arguments(
                 self.run_paths,
                 self.active_realizations,
-                ensemble=prior,
+                ensemble=posterior,
             )
             update_success = False
             for _iteration in range(self.num_retries_per_iter):
@@ -199,8 +199,8 @@ class IteratedEnsembleSmoother(BaseRunModel):
                     update_success = True
                     break
                 self._evaluate_and_postprocess(
-                    posterior_args,
-                    posterior,
+                    prior_args,
+                    prior,
                     evaluator_server_config,
                 )
 
