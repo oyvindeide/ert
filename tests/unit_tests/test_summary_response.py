@@ -36,7 +36,7 @@ def test_load_summary_response_restart_not_zero(tmpdir, snapshot, request, stora
             name="prior",
             ensemble_size=ert_config.model_config.num_realizations,
         )
-        prior = ensemble_context(
+        run_context = ensemble_context(
             ensemble,
             [True],
             0,
@@ -46,7 +46,13 @@ def test_load_summary_response_restart_not_zero(tmpdir, snapshot, request, stora
             "name",
         )
 
-        create_run_path(prior, ert_config)
+        create_run_path(
+            run_context.run_args,
+            run_context.iteration,
+            run_context.ensemble,
+            ert_config,
+            run_context.runpaths,
+        )
         shutil.copy(test_path / "PRED_RUN.SMSPEC", sim_path / "PRED_RUN.SMSPEC")
         shutil.copy(test_path / "PRED_RUN.UNSMRY", sim_path / "PRED_RUN.UNSMRY")
 

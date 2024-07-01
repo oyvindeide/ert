@@ -636,7 +636,13 @@ class BaseRunModel:
 
         phase_string = f"Running simulation for iteration: {iteration}"
         self.setPhase(iteration, phase_string)
-        create_run_path(run_context, self.ert_config)
+        create_run_path(
+            run_context.run_args,
+            run_context.iteration,
+            run_context.ensemble,
+            self.ert_config,
+            self.run_paths,
+        )
 
         phase_string = f"Pre processing for iteration: {iteration}"
         self.setPhaseName(phase_string)

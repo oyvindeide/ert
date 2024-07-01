@@ -12,6 +12,7 @@ import numpy as np
 from numpy.random import SeedSequence
 
 from .config import ParameterConfig
+from .run_arg import RunArg
 from .run_context import RunContext
 from .runpaths import Runpaths
 from .substitution_list import SubstitutionList
@@ -159,21 +160,23 @@ def sample_prior(
 
 
 def create_run_path(
-    run_context: RunContext,
+    run_args: List[RunArg],
+    iteration: int,
+    ensemble: Ensemble,
     ert_config: ErtConfig,
+    runpaths: Runpaths,
 ) -> None:
     t = time.perf_counter()
     substitution_list = ert_config.substitution_list
-    substitution_list["<ERT-CASE>"] = run_context.ensemble.name
-    substitution_list["<ERTCASE>"] = run_context.ensemble.name
-    for iens, run_arg in enumerate(run_context):
+    runpaths.set_ert_ensemble(ensemble.name)
+    for run_arg in run_args:
         run_path = Path(run_arg.runpath)
-        if run_context.is_active(iens):
+        if run_arg.active:
             run_path.mkdir(parents=True, exist_ok=True)
 
             for source_file, target_file in ert_config.ert_templates:
                 target_file = substitution_list.substitute_real_iter(
-                    target_file, run_arg.iens, run_context.iteration
+                    target_file, run_arg.iens, iteration
                 )
                 try:
                     file_content = Path(source_file).read_text("utf-8")
@@ -185,7 +188,7 @@ def create_run_path(
                 result = substitution_list.substitute_real_iter(
                     file_content,
                     run_arg.iens,
-                    run_context.iteration,
+                    iteration,
                 )
                 target = run_path / target_file
                 if not target.parent.exists():
@@ -197,12 +200,12 @@ def create_run_path(
 
             model_config = ert_config.model_config
             _generate_parameter_files(
-                run_context.ensemble.experiment.parameter_configuration.values(),
+                ensemble.experiment.parameter_configuration.values(),
                 model_config.gen_kw_export_name,
                 run_path,
                 run_arg.iens,
-                run_context.ensemble,
-                run_context.iteration,
+                ensemble,
+                iteration,
             )
 
             path = run_path / "jobs.json"
@@ -211,7 +214,7 @@ def create_run_path(
                 forward_model_output = ert_config.forward_model_data_to_json(
                     run_arg.run_id,
                     run_arg.iens,
-                    run_context.iteration,
+                    iteration,
                 )
 
                 json.dump(forward_model_output, fptr)
@@ -220,8 +223,8 @@ def create_run_path(
                 data = ert_config.manifest_to_json(run_arg.iens, run_arg.itr)
                 json.dump(data, fptr)
 
-    run_context.runpaths.write_runpath_list(
-        [run_context.iteration], run_context.active_realizations
+    runpaths.write_runpath_list(
+        [iteration], [real.iens for real in run_args if real.active]
     )
 
     logger.debug(f"create_run_path() time_used {(time.perf_counter() - t):.4f}s")

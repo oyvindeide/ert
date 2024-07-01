@@ -35,7 +35,13 @@ def setup_case(storage, use_tmpdir):
             ert_config.model_config.runpath_format_string,
             "name",
         )
-        create_run_path(run_context, ert_config)
+        create_run_path(
+            run_context.run_args,
+            run_context.iteration,
+            run_context.ensemble,
+            ert_config,
+            run_context.runpaths,
+        )
         return ert_config, prior_ensemble
 
     yield func
@@ -142,7 +148,13 @@ def test_load_forward_model_summary(summary_configuration, storage, expected, ca
         ert_config.model_config.runpath_format_string,
         "name",
     )
-    create_run_path(run_context, ert_config)
+    create_run_path(
+        run_context.run_args,
+        run_context.iteration,
+        run_context.ensemble,
+        ert_config,
+        run_context.runpaths,
+    )
     facade = LibresFacade(ert_config)
     with caplog.at_level(logging.ERROR):
         loaded = facade.load_from_forward_model(prior_ensemble, [True], 0)
@@ -257,7 +269,13 @@ def test_loading_gen_data_without_restart(storage):
         ert_config.model_config.runpath_format_string,
         "name",
     )
-    create_run_path(run_context, ert_config)
+    create_run_path(
+        run_context.run_args,
+        run_context.iteration,
+        run_context.ensemble,
+        ert_config,
+        run_context.runpaths,
+    )
     run_path = Path("simulations/realization-0/iter-0/")
     with open(run_path / "response.out", "w", encoding="utf-8") as fout:
         fout.write("\n".join(["1", "2", "3"]))

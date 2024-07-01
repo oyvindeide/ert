@@ -227,7 +227,7 @@ def test_gen_kw_is_log_or_not(
         prior_ensemble = storage.create_ensemble(
             experiment_id, name="prior", ensemble_size=1
         )
-        prior = ensemble_context(
+        run_context = ensemble_context(
             prior_ensemble,
             [True],
             0,
@@ -236,8 +236,14 @@ def test_gen_kw_is_log_or_not(
             ert_config.model_config.runpath_format_string,
             "name",
         )
-        sample_prior(prior_ensemble, [0])
-        create_run_path(prior, ert_config)
+        sample_prior(run_context, [0])
+        create_run_path(
+            run_context.run_args,
+            run_context.iteration,
+            run_context.ensemble,
+            ert_config,
+            run_context.runpaths,
+        )
         assert re.match(
             parameters_regex,
             Path("simulations/realization-0/iter-0/parameters.txt").read_text(

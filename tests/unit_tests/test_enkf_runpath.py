@@ -17,7 +17,7 @@ def test_with_gen_kw(storage):
     prior_ensemble = storage.create_ensemble(
         experiment_id, name="prior", ensemble_size=1
     )
-    prior = ensemble_context(
+    run_context = ensemble_context(
         prior_ensemble,
         [True],
         0,
@@ -27,7 +27,13 @@ def test_with_gen_kw(storage):
         "name",
     )
     sample_prior(prior_ensemble, [0])
-    create_run_path(prior, ert_config)
+    create_run_path(
+        run_context.run_args,
+        run_context.iteration,
+        run_context.ensemble,
+        ert_config,
+        run_context.runpaths,
+    )
     assert os.path.exists(
         "storage/snake_oil/runpath/realization-0/iter-0/parameters.txt"
     )
@@ -44,7 +50,7 @@ def test_without_gen_kw(prior_ensemble):
             print(line, end="")
     assert "GEN_KW" not in Path("snake_oil.ert").read_text("utf-8")
     ert_config = ErtConfig.from_file("snake_oil.ert")
-    prior = ensemble_context(
+    run_context = ensemble_context(
         prior_ensemble,
         [True],
         0,
@@ -54,7 +60,13 @@ def test_without_gen_kw(prior_ensemble):
         "name",
     )
     sample_prior(prior_ensemble, [0])
-    create_run_path(prior, ert_config)
+    create_run_path(
+        run_context.run_args,
+        run_context.iteration,
+        run_context.ensemble,
+        ert_config,
+        run_context.runpaths,
+    )
     assert os.path.exists("storage/snake_oil/runpath/realization-0/iter-0")
     assert not os.path.exists(
         "storage/snake_oil/runpath/realization-0/iter-0/parameters.txt"
@@ -72,7 +84,7 @@ def test_jobs_file_is_backed_up(storage):
     prior_ensemble = storage.create_ensemble(
         experiment_id, name="prior", ensemble_size=5
     )
-    prior = ensemble_context(
+    run_context = ensemble_context(
         prior_ensemble,
         [True],
         0,
@@ -82,9 +94,21 @@ def test_jobs_file_is_backed_up(storage):
         "name",
     )
     sample_prior(prior_ensemble, [0])
-    create_run_path(prior, ert_config)
+    create_run_path(
+        run_context.run_args,
+        run_context.iteration,
+        run_context.ensemble,
+        ert_config,
+        run_context.runpaths,
+    )
     assert os.path.exists("storage/snake_oil/runpath/realization-0/iter-0/jobs.json")
-    create_run_path(prior, ert_config)
+    create_run_path(
+        run_context.run_args,
+        run_context.iteration,
+        run_context.ensemble,
+        ert_config,
+        run_context.runpaths,
+    )
     iter0_output_files = os.listdir("storage/snake_oil/runpath/realization-0/iter-0/")
     jobs_files = [f for f in iter0_output_files if f.startswith("jobs.json")]
     assert len(jobs_files) > 1, "No backup created for jobs.json"

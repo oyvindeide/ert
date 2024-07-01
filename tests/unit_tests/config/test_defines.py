@@ -20,7 +20,13 @@ def read_jobname(config_file):
             runpath_format=ert_config.model_config.runpath_format_string,
             runpath_file="name",
         )
-        create_run_path(run_context, ert_config)
+        create_run_path(
+            run_context.run_args,
+            run_context.iteration,
+            run_context.ensemble,
+            ert_config,
+            run_context.runpaths,
+        )
     return run_context[0].job_name
 
 

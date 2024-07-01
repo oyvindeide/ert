@@ -125,8 +125,14 @@ class BatchContext:
             initial_mask=self.mask,
             iteration=self.itr,
         )
-
-        create_run_path(self._run_context, ert_config)
+        run_context = self._run_context
+        create_run_path(
+            run_context.run_args,
+            run_context.iteration,
+            run_context.ensemble,
+            ert_config,
+            run_context.runpaths,
+        )
         for workflow in ert_config.hooked_workflows[HookRuntime.PRE_SIMULATION]:
             WorkflowRunner(workflow, None, self._run_context.ensemble).run_blocking()
         self._sim_thread = self._run_simulations_simple_step()

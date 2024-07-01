@@ -28,7 +28,7 @@ def create_runpath(
             ensemble_size=ert_config.model_config.num_realizations,
         )
 
-    prior = ensemble_context(
+    run_context = ensemble_context(
         ensemble,
         active_mask,
         iteration,
@@ -43,7 +43,13 @@ def create_runpath(
         [i for i, active in enumerate(active_mask) if active],
         random_seed=random_seed,
     )
-    create_run_path(prior, ert_config)
+    create_run_path(
+        run_context.run_args,
+        run_context.iteration,
+        run_context.ensemble,
+        ert_config,
+        run_context.runpaths,
+    )
     return ert_config.ensemble_config, ensemble
 
 
