@@ -7,7 +7,7 @@ import numpy as np
 
 from ert.enkf_main import sample_prior
 from ert.ensemble_evaluator import EvaluatorServerConfig
-from ert.run_context import RunContext
+from ert.run_context import create_run_arguments
 from ert.storage import Storage
 
 from .base_run_model import BaseRunModel, StatusEvents
@@ -51,7 +51,7 @@ class EnsembleExperiment(BaseRunModel):
     def run_experiment(
         self,
         evaluator_server_config: EvaluatorServerConfig,
-    ) -> RunContext:
+    ) -> None:
         self.setPhaseName(self.run_message())
         experiment = self._storage.create_experiment(
             name=self.experiment_name,
@@ -67,30 +67,29 @@ class EnsembleExperiment(BaseRunModel):
         self.set_env_key("_ERT_EXPERIMENT_ID", str(experiment.id))
         self.set_env_key("_ERT_ENSEMBLE_ID", str(ensemble.id))
 
-        prior_context = RunContext(
+        iteration = 0
+        run_args = create_run_arguments(
+            self.run_paths,
+            np.array(self.active_realizations, dtype=bool),
+            iteration=iteration,
             ensemble=ensemble,
-            runpaths=self.run_paths,
-            initial_mask=np.array(self.active_realizations, dtype=bool),
         )
         sample_prior(
-            prior_context.ensemble,
-            prior_context.active_realizations,
+            ensemble,
+            np.where(self.active_realizations)[0],
             random_seed=self.random_seed,
         )
 
-        iteration = prior_context.iteration
         phase_count = iteration + 1
         self.setPhaseCount(phase_count)
         self._evaluate_and_postprocess(
-            prior_context.run_args,
-            prior_context.iteration,
-            prior_context.ensemble,
+            run_args,
+            iteration,
+            ensemble,
             evaluator_server_config,
         )
 
         self.setPhase(phase_count, "Simulations completed.")
-
-        return prior_context
 
     @classmethod
     def run_message(cls) -> str:

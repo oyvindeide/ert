@@ -12,7 +12,7 @@ from ert.analysis import ErtAnalysisError, SmootherSnapshot, smoother_update
 from ert.config import ErtConfig, HookRuntime
 from ert.enkf_main import sample_prior
 from ert.ensemble_evaluator import EvaluatorServerConfig
-from ert.run_context import RunContext
+from ert.run_context import create_run_arguments
 from ert.run_models.run_arguments import ESMDARunArguments
 from ert.storage import Ensemble, Storage
 
@@ -78,9 +78,7 @@ class MultipleDataAssimilation(BaseRunModel):
             minimum_required_realizations=simulation_arguments.minimum_required_realizations,
         )
 
-    def run_experiment(
-        self, evaluator_server_config: EvaluatorServerConfig
-    ) -> RunContext:
+    def run_experiment(self, evaluator_server_config: EvaluatorServerConfig) -> None:
         self.setPhaseCount(self.number_of_iterations)
 
         log_msg = f"Running ES-MDA with normalized weights {self.weights}"
@@ -96,12 +94,6 @@ class MultipleDataAssimilation(BaseRunModel):
                 self.set_env_key("_ERT_EXPERIMENT_ID", str(experiment.id))
                 self.set_env_key("_ERT_ENSEMBLE_ID", str(prior.id))
                 assert isinstance(prior, Ensemble)
-                prior_context = RunContext(
-                    ensemble=prior,
-                    runpaths=self.run_paths,
-                    initial_mask=np.array(self.active_realizations, dtype=bool),
-                    iteration=prior.iteration,
-                )
                 if self.start_iteration != prior.iteration + 1:
                     raise ValueError(
                         f"Experiment misconfigured, got starting iteration: {self.start_iteration},"
@@ -127,21 +119,21 @@ class MultipleDataAssimilation(BaseRunModel):
             )
             self.set_env_key("_ERT_EXPERIMENT_ID", str(experiment.id))
             self.set_env_key("_ERT_ENSEMBLE_ID", str(prior.id))
-            prior_context = RunContext(
-                ensemble=prior,
-                runpaths=self.run_paths,
-                initial_mask=np.array(self.active_realizations, dtype=bool),
+            prior_args = create_run_arguments(
+                self.run_paths,
+                np.array(self.active_realizations, dtype=bool),
                 iteration=prior.iteration,
+                ensemble=prior,
             )
             sample_prior(
-                prior_context.ensemble,
-                prior_context.active_realizations,
+                prior,
+                np.where(self.active_realizations)[0],
                 random_seed=self.random_seed,
             )
             self._evaluate_and_postprocess(
-                prior_context.run_args,
-                prior_context.iteration,
-                prior_context.ensemble,
+                prior_args,
+                prior.iteration,
+                prior,
                 evaluator_server_config,
             )
         enumerated_weights = list(enumerate(self.weights))
@@ -151,9 +143,7 @@ class MultipleDataAssimilation(BaseRunModel):
             is_first_iteration = iteration == 0
 
             self.send_event(
-                RunModelUpdateBeginEvent(
-                    iteration=iteration, run_id=prior_context.run_id
-                )
+                RunModelUpdateBeginEvent(iteration=iteration, run_id=prior.id)
             )
             if is_first_iteration:
                 self.run_workflows(HookRuntime.PRE_FIRST_UPDATE, self._storage, prior)
@@ -162,79 +152,76 @@ class MultipleDataAssimilation(BaseRunModel):
             self.send_event(
                 RunModelStatusEvent(
                     iteration=iteration,
-                    run_id=prior_context.run_id,
+                    run_id=prior.id,
                     msg="Creating posterior ensemble..",
                 )
             )
-            posterior_context = RunContext(
-                ensemble=self._storage.create_ensemble(
-                    experiment,
-                    name=self.target_ensemble_format % (iteration + 1),  # noqa
-                    ensemble_size=prior_context.ensemble.ensemble_size,
-                    iteration=iteration + 1,
-                    prior_ensemble=prior_context.ensemble,
-                ),
-                runpaths=self.run_paths,
-                initial_mask=(
-                    prior_context.ensemble.get_realization_mask_with_parameters()
-                    * prior_context.ensemble.get_realization_mask_with_responses()
-                    * prior_context.ensemble.get_realization_mask_without_failure()
+            posterior = self._storage.create_ensemble(
+                experiment,
+                name=self.target_ensemble_format % (iteration + 1),  # noqa
+                ensemble_size=prior.ensemble_size,
+                iteration=iteration + 1,
+                prior_ensemble=prior,
+            )
+            posterior_args = create_run_arguments(
+                self.run_paths,
+                (
+                    prior.get_realization_mask_with_parameters()
+                    * prior.get_realization_mask_with_responses()
+                    * prior.get_realization_mask_without_failure()
                 ),
                 iteration=iteration + 1,
+                ensemble=posterior,
             )
             self.update(
-                prior_context,
-                posterior_context,
+                prior,
+                posterior,
                 weight=weight,
             )
-            self.run_workflows(
-                HookRuntime.POST_UPDATE, self._storage, prior_context.ensemble
-            )
+            self.run_workflows(HookRuntime.POST_UPDATE, self._storage, prior)
 
             self._evaluate_and_postprocess(
-                posterior_context.run_args,
-                posterior_context.iteration,
-                posterior_context.ensemble,
+                posterior_args,
+                posterior.iteration,
+                posterior,
                 evaluator_server_config,
             )
-            prior_context = posterior_context
+            prior = posterior
 
         self.setPhaseName("Post processing...")
 
         self.setPhase(self.number_of_iterations, "Experiment completed.")
 
-        return prior_context
-
     def update(
         self,
-        prior_context: "RunContext",
-        posterior_context: "RunContext",
+        prior_ensemble: Ensemble,
+        posterior_ensemble: Ensemble,
         weight: float,
     ) -> SmootherSnapshot:
-        next_iteration = prior_context.iteration + 1
-
-        phase_string = f"Analyzing iteration: {next_iteration} with weight {weight}"
+        phase_string = (
+            f"Analyzing iteration: {posterior_ensemble.iteration} with weight {weight}"
+        )
         self.setPhase(self.currentPhase() + 1, phase_string)
         try:
             return smoother_update(
-                prior_context.ensemble,
-                posterior_context.ensemble,
+                prior_ensemble,
+                posterior_ensemble,
                 analysis_config=self.update_settings,
                 es_settings=self.es_settings,
-                parameters=prior_context.ensemble.experiment.update_parameters,
-                observations=prior_context.ensemble.experiment.observation_keys,
+                parameters=prior_ensemble.experiment.update_parameters,
+                observations=prior_ensemble.experiment.observation_keys,
                 global_scaling=weight,
                 rng=self.rng,
                 progress_callback=functools.partial(
                     self.send_smoother_event,
-                    prior_context.iteration,
-                    prior_context.run_id,
+                    prior_ensemble.iteration,
+                    prior_ensemble.id,
                 ),
             )
         except ErtAnalysisError as e:
             raise ErtRunError(
                 "Update algorithm failed for iteration:"
-                f"{next_iteration}. The following error occured {e}"
+                f"{posterior_ensemble.iteration}. The following error occurred {e}"
             ) from e
 
     @staticmethod

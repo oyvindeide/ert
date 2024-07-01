@@ -11,7 +11,7 @@ from ert.analysis import ErtAnalysisError, smoother_update
 from ert.config import ErtConfig, HookRuntime
 from ert.enkf_main import sample_prior
 from ert.ensemble_evaluator import EvaluatorServerConfig
-from ert.run_context import RunContext
+from ert.run_context import create_run_arguments
 from ert.run_models.run_arguments import ESRunArguments
 from ert.storage import Storage
 
@@ -57,9 +57,7 @@ class EnsembleSmoother(BaseRunModel):
         self.update_settings = update_settings
         self.support_restart = False
 
-    def run_experiment(
-        self, evaluator_server_config: EvaluatorServerConfig
-    ) -> RunContext:
+    def run_experiment(self, evaluator_server_config: EvaluatorServerConfig) -> None:
         log_msg = "Running ES"
         logger.info(log_msg)
         self.setPhaseName(log_msg)
@@ -78,72 +76,63 @@ class EnsembleSmoother(BaseRunModel):
             name=ensemble_format % 0,
         )
         self.set_env_key("_ERT_ENSEMBLE_ID", str(prior.id))
-        prior_context = RunContext(
+        prior_args = create_run_arguments(
+            self.run_paths,
+            np.array(self.active_realizations, dtype=bool),
+            iteration=prior.iteration,
             ensemble=prior,
-            runpaths=self.run_paths,
-            initial_mask=np.array(self.active_realizations, dtype=bool),
-            iteration=0,
         )
 
         sample_prior(
-            prior_context.ensemble,
-            prior_context.active_realizations,
+            prior,
+            np.where(self.active_realizations)[0],
             random_seed=self.random_seed,
         )
 
         self._evaluate_and_postprocess(
-            prior_context.run_args,
-            prior_context.iteration,
-            prior_context.ensemble,
+            prior_args,
+            prior.iteration,
+            prior,
             evaluator_server_config,
         )
 
-        self.send_event(
-            RunModelUpdateBeginEvent(iteration=0, run_id=prior_context.run_id)
-        )
+        self.send_event(RunModelUpdateBeginEvent(iteration=0, run_id=prior.id))
 
         self.setPhaseName("Running ES update step")
-        self.run_workflows(
-            HookRuntime.PRE_FIRST_UPDATE, self._storage, prior_context.ensemble
-        )
-        self.run_workflows(
-            HookRuntime.PRE_UPDATE, self._storage, prior_context.ensemble
-        )
+        self.run_workflows(HookRuntime.PRE_FIRST_UPDATE, self._storage, prior)
+        self.run_workflows(HookRuntime.PRE_UPDATE, self._storage, prior)
 
         self.send_event(
             RunModelStatusEvent(
                 iteration=0,
-                run_id=prior_context.run_id,
+                run_id=prior.id,
                 msg="Creating posterior ensemble..",
             )
         )
-        posterior_context = RunContext(
-            ensemble=self._storage.create_ensemble(
-                experiment,
-                ensemble_size=prior.ensemble_size,
-                iteration=1,
-                name=ensemble_format % 1,
-                prior_ensemble=prior,
-            ),
-            runpaths=self.run_paths,
-            initial_mask=(
-                prior_context.ensemble.get_realization_mask_with_parameters()
-                * prior_context.ensemble.get_realization_mask_with_responses()
-                * prior_context.ensemble.get_realization_mask_without_failure()
-            ),
+        posterior = self._storage.create_ensemble(
+            experiment,
+            ensemble_size=prior.ensemble_size,
             iteration=1,
+            name=ensemble_format % 1,
+            prior_ensemble=prior,
+        )
+        posterior_args = create_run_arguments(
+            self.run_paths,
+            np.array(self.active_realizations, dtype=bool),
+            iteration=posterior.iteration,
+            ensemble=posterior,
         )
         try:
             smoother_update(
-                prior_context.ensemble,
-                posterior_context.ensemble,
+                prior,
+                posterior,
                 analysis_config=self.update_settings,
                 es_settings=self.es_settings,
-                parameters=prior_context.ensemble.experiment.update_parameters,
-                observations=prior_context.ensemble.experiment.observation_keys,
+                parameters=prior.experiment.update_parameters,
+                observations=prior.experiment.observation_keys,
                 rng=self.rng,
                 progress_callback=functools.partial(
-                    self.send_smoother_event, 0, prior_context.run_id
+                    self.send_smoother_event, 0, prior.id
                 ),
             )
 
@@ -152,20 +141,16 @@ class EnsembleSmoother(BaseRunModel):
                 f"Analysis of experiment failed with the following error: {e}"
             ) from e
 
-        self.run_workflows(
-            HookRuntime.POST_UPDATE, self._storage, prior_context.ensemble
-        )
+        self.run_workflows(HookRuntime.POST_UPDATE, self._storage, prior)
 
         self._evaluate_and_postprocess(
-            posterior_context.run_args,
-            posterior_context.iteration,
-            posterior_context.ensemble,
+            posterior_args,
+            posterior.iteration,
+            posterior,
             evaluator_server_config,
         )
 
         self.setPhase(2, "Experiment completed.")
-
-        return posterior_context
 
     @classmethod
     def name(cls) -> str:

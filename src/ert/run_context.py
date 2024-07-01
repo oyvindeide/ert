@@ -15,6 +15,30 @@ if TYPE_CHECKING:
     from .storage import Ensemble
 
 
+def create_run_arguments(
+    runpaths: Runpaths, active_realizations, iteration: int, ensemble: Ensemble
+) -> List[RunArg]:
+    run_args = []
+    paths = runpaths.get_paths(list(range(len(active_realizations))), iteration)
+    job_names = runpaths.get_jobnames(list(range(len(active_realizations))), iteration)
+
+    for iens, (run_path, job_name, active) in enumerate(
+        zip(paths, job_names, active_realizations)
+    ):
+        run_args.append(
+            RunArg(
+                str(ensemble.id),
+                ensemble,
+                iens,
+                iteration,
+                run_path,
+                job_name,
+                active,
+            )
+        )
+    return run_args
+
+
 @dataclass
 class RunContext:
     ensemble: Ensemble
@@ -26,29 +50,10 @@ class RunContext:
 
     def __post_init__(self) -> None:
         self.run_id = uuid.uuid4()
-        self.run_args = []
+        self.run_args = create_run_arguments(
+            self.runpaths, self.initial_mask, self.iteration, self.ensemble
+        )
         self.runpaths.set_ert_ensemble(self.ensemble.name)
-        paths = self.runpaths.get_paths(
-            list(range(len(self.initial_mask))), self.iteration
-        )
-        job_names = self.runpaths.get_jobnames(
-            list(range(len(self.initial_mask))), self.iteration
-        )
-
-        for iens, (run_path, job_name, active) in enumerate(
-            zip(paths, job_names, self.initial_mask)
-        ):
-            self.run_args.append(
-                RunArg(
-                    str(self.run_id),
-                    self.ensemble,
-                    iens,
-                    self.iteration,
-                    run_path,
-                    job_name,
-                    active,
-                )
-            )
 
     @property
     def mask(self) -> List[bool]:

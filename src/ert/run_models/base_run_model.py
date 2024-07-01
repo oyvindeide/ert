@@ -61,7 +61,6 @@ from ert.ensemble_evaluator.state import (
 )
 from ert.libres_facade import LibresFacade
 from ert.mode_definitions import MODULE_MODE
-from ert.run_context import RunContext
 from ert.runpaths import Runpaths
 from ert.storage import Ensemble, Storage
 from ert.workflow_runner import WorkflowRunner
@@ -305,10 +304,10 @@ class BaseRunModel:
             self.stop_time = None
             with captured_logs(self._error_messages):
                 self._set_default_env_context()
-                run_context = self.run_experiment(
+                self.run_experiment(
                     evaluator_server_config=evaluator_server_config,
                 )
-                self._completed_realizations_mask = run_context.mask
+                self._completed_realizations_mask = copy.copy(self.active_realizations)
         except ErtRunError as e:
             self._completed_realizations_mask = []
             self._failed = True
@@ -322,9 +321,7 @@ class BaseRunModel:
             self._exception = e
             self._simulationEnded()
 
-    def run_experiment(
-        self, evaluator_server_config: EvaluatorServerConfig
-    ) -> RunContext:
+    def run_experiment(self, evaluator_server_config: EvaluatorServerConfig) -> None:
         raise NotImplementedError("Method must be implemented by inheritors!")
 
     def phaseCount(self) -> int:
