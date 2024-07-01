@@ -74,7 +74,12 @@ class EvaluateEnsemble(BaseRunModel):
         iteration = prior_context.iteration
         phase_count = iteration + 1
         self.setPhaseCount(phase_count)
-        self._evaluate_and_postprocess(prior_context, evaluator_server_config)
+        self._evaluate_and_postprocess(
+            prior_context.run_args,
+            prior_context.iteration,
+            prior_context.ensemble,
+            evaluator_server_config,
+        )
 
         self.setPhase(phase_count, "Simulations completed.")
 

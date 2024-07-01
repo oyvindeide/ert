@@ -629,43 +629,40 @@ class BaseRunModel:
 
     def _evaluate_and_postprocess(
         self,
-        run_context: RunContext,
+        run_args: List[RunArg],
+        iteration: int,
+        ensemble: Ensemble,
         evaluator_server_config: EvaluatorServerConfig,
     ) -> int:
-        iteration = run_context.iteration
-
         phase_string = f"Running simulation for iteration: {iteration}"
         self.setPhase(iteration, phase_string)
         create_run_path(
-            run_context.run_args,
-            run_context.iteration,
-            run_context.ensemble,
+            run_args,
+            iteration,
+            ensemble,
             self.ert_config,
             self.run_paths,
         )
 
         phase_string = f"Pre processing for iteration: {iteration}"
         self.setPhaseName(phase_string)
-        self.run_workflows(
-            HookRuntime.PRE_SIMULATION, self._storage, run_context.ensemble
-        )
+        self.run_workflows(HookRuntime.PRE_SIMULATION, self._storage, ensemble)
 
         phase_string = f"Running forecast for iteration: {iteration}"
         self.setPhaseName(phase_string)
 
         successful_realizations = self.run_ensemble_evaluator(
-            run_context.run_args,
-            run_context.iteration,
-            run_context.ensemble.experiment_id,
-            run_context.ensemble,
+            run_args,
+            iteration,
+            ensemble.experiment_id,
+            ensemble,
             evaluator_server_config,
         )
-        starting_realizations = run_context.active_realizations
+        starting_realizations = [real.iens for real in run_args if real.active]
         failed_realizations = list(
             set(starting_realizations) - set(successful_realizations)
         )
         for iens in failed_realizations:
-            run_context.deactivate_realization(iens)
             self.active_realizations[iens] = False
 
         num_successful_realizations = len(successful_realizations)
@@ -686,8 +683,6 @@ class BaseRunModel:
 
         phase_string = f"Post processing for iteration: {iteration}"
         self.setPhaseName(phase_string)
-        self.run_workflows(
-            HookRuntime.POST_SIMULATION, self._storage, run_context.ensemble
-        )
+        self.run_workflows(HookRuntime.POST_SIMULATION, self._storage, ensemble)
 
         return num_successful_realizations

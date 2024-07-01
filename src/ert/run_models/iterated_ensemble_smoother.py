@@ -156,7 +156,12 @@ class IteratedEnsembleSmoother(BaseRunModel):
             prior_context.active_realizations,
             random_seed=self.random_seed,
         )
-        self._evaluate_and_postprocess(prior_context, evaluator_server_config)
+        self._evaluate_and_postprocess(
+            prior_context.run_args,
+            prior_context.iteration,
+            prior_context.ensemble,
+            evaluator_server_config,
+        )
 
         self.run_workflows(
             HookRuntime.PRE_FIRST_UPDATE, self._storage, prior_context.ensemble
@@ -206,11 +211,19 @@ class IteratedEnsembleSmoother(BaseRunModel):
                 if analysis_success:
                     update_success = True
                     break
-                self._evaluate_and_postprocess(prior_context, evaluator_server_config)
+                self._evaluate_and_postprocess(
+                    prior_context.run_args,
+                    prior_context.iteration,
+                    prior_context.ensemble,
+                    evaluator_server_config,
+                )
 
             if update_success:
                 self._evaluate_and_postprocess(
-                    posterior_context, evaluator_server_config
+                    posterior_context.run_args,
+                    posterior_context.iteration,
+                    posterior_context.ensemble,
+                    evaluator_server_config,
                 )
             else:
                 raise ErtRunError(

@@ -138,7 +138,12 @@ class MultipleDataAssimilation(BaseRunModel):
                 prior_context.active_realizations,
                 random_seed=self.random_seed,
             )
-            self._evaluate_and_postprocess(prior_context, evaluator_server_config)
+            self._evaluate_and_postprocess(
+                prior_context.run_args,
+                prior_context.iteration,
+                prior_context.ensemble,
+                evaluator_server_config,
+            )
         enumerated_weights = list(enumerate(self.weights))
         weights_to_run = enumerated_weights[prior.iteration :]
 
@@ -186,7 +191,12 @@ class MultipleDataAssimilation(BaseRunModel):
                 HookRuntime.POST_UPDATE, self._storage, prior_context.ensemble
             )
 
-            self._evaluate_and_postprocess(posterior_context, evaluator_server_config)
+            self._evaluate_and_postprocess(
+                posterior_context.run_args,
+                posterior_context.iteration,
+                posterior_context.ensemble,
+                evaluator_server_config,
+            )
             prior_context = posterior_context
 
         self.setPhaseName("Post processing...")

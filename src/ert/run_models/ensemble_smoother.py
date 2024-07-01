@@ -91,7 +91,12 @@ class EnsembleSmoother(BaseRunModel):
             random_seed=self.random_seed,
         )
 
-        self._evaluate_and_postprocess(prior_context, evaluator_server_config)
+        self._evaluate_and_postprocess(
+            prior_context.run_args,
+            prior_context.iteration,
+            prior_context.ensemble,
+            evaluator_server_config,
+        )
 
         self.send_event(
             RunModelUpdateBeginEvent(iteration=0, run_id=prior_context.run_id)
@@ -151,7 +156,12 @@ class EnsembleSmoother(BaseRunModel):
             HookRuntime.POST_UPDATE, self._storage, prior_context.ensemble
         )
 
-        self._evaluate_and_postprocess(posterior_context, evaluator_server_config)
+        self._evaluate_and_postprocess(
+            posterior_context.run_args,
+            posterior_context.iteration,
+            posterior_context.ensemble,
+            evaluator_server_config,
+        )
 
         self.setPhase(2, "Experiment completed.")
 
