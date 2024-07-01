@@ -1,8 +1,10 @@
 from typing import Optional, Tuple
 
 from ert.config import ErtConfig
-from ert.enkf_main import create_run_path, ensemble_context, sample_prior
+from ert.enkf_main import create_run_path, sample_prior
 from ert.libres_facade import LibresFacade
+from ert.run_context import create_run_arguments
+from ert.runpaths import Runpaths
 from ert.storage import Ensemble
 
 
@@ -28,14 +30,14 @@ def create_runpath(
             ensemble_size=ert_config.model_config.num_realizations,
         )
 
-    run_context = ensemble_context(
-        ensemble,
-        active_mask,
-        iteration,
-        None,
-        "",
-        ert_config.model_config.runpath_format_string,
-        "name",
+    runpaths = Runpaths(
+        jobname_format=ert_config.model_config.jobname_format_string,
+        runpath_format=ert_config.model_config.runpath_format_string,
+        filename=str(ert_config.runpath_file),
+        substitution_list=ert_config.substitution_list,
+    )
+    run_args = create_run_arguments(
+        runpaths, [True] * ert_config.model_config.num_realizations, iteration, ensemble
     )
 
     sample_prior(
@@ -44,11 +46,11 @@ def create_runpath(
         random_seed=random_seed,
     )
     create_run_path(
-        run_context.run_args,
-        run_context.iteration,
-        run_context.ensemble,
+        run_args,
+        iteration,
+        ensemble,
         ert_config,
-        run_context.runpaths,
+        runpaths,
     )
     return ert_config.ensemble_config, ensemble
 
