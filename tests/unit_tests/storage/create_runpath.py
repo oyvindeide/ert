@@ -37,7 +37,7 @@ def create_runpath(
         substitution_list=ert_config.substitution_list,
     )
     run_args = create_run_arguments(
-        runpaths, [True] * ert_config.model_config.num_realizations, iteration, ensemble
+        runpaths, [True] * ert_config.model_config.num_realizations, ensemble
     )
 
     sample_prior(

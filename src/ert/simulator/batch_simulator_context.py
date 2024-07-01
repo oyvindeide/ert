@@ -124,7 +124,6 @@ class BatchContext:
         self.run_args = create_run_arguments(
             run_paths,
             self.mask,
-            iteration=self.itr,
             ensemble=self.ensemble,
         )
         create_run_path(

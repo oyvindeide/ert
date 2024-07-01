@@ -137,7 +137,6 @@ class LibresFacade:
                 substitution_list=self.config.substitution_list,
             ),
             realisations,
-            iteration=iteration,
             ensemble=ensemble,
         )
         nr_loaded = self._load_from_run_path(

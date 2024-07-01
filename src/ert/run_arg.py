@@ -25,9 +25,9 @@ class RunArg:
 def create_run_arguments(
     runpaths: Runpaths,
     active_realizations: List[bool],
-    iteration: int,
     ensemble: Ensemble,
 ) -> List[RunArg]:
+    iteration = ensemble.iteration
     run_args = []
     runpaths.set_ert_ensemble(ensemble.name)
     paths = runpaths.get_paths(list(range(len(active_realizations))), iteration)

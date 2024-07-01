@@ -71,7 +71,6 @@ class EnsembleExperiment(BaseRunModel):
         run_args = create_run_arguments(
             self.run_paths,
             np.array(self.active_realizations, dtype=bool),
-            iteration=iteration,
             ensemble=ensemble,
         )
         sample_prior(

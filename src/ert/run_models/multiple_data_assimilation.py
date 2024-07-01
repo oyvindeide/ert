@@ -122,7 +122,6 @@ class MultipleDataAssimilation(BaseRunModel):
             prior_args = create_run_arguments(
                 self.run_paths,
                 np.array(self.active_realizations, dtype=bool),
-                iteration=prior.iteration,
                 ensemble=prior,
             )
             sample_prior(
@@ -169,7 +168,6 @@ class MultipleDataAssimilation(BaseRunModel):
                     * prior.get_realization_mask_with_responses()
                     * prior.get_realization_mask_without_failure()
                 ),
-                iteration=iteration + 1,
                 ensemble=posterior,
             )
             self.update(

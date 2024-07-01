@@ -145,7 +145,6 @@ class IteratedEnsembleSmoother(BaseRunModel):
         prior_args = create_run_arguments(
             self.run_paths,
             np.array(self.active_realizations, dtype=bool),
-            iteration=prior.iteration,
             ensemble=prior,
         )
 
@@ -183,7 +182,6 @@ class IteratedEnsembleSmoother(BaseRunModel):
             posterior_args = create_run_arguments(
                 self.run_paths,
                 self.active_realizations,
-                iteration=prior.iteration,
                 ensemble=prior,
             )
             update_success = False

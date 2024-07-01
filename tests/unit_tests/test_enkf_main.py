@@ -21,7 +21,7 @@ def test_create_run_args(prior_ensemble, config_dict, run_paths):
     config = ErtConfig.from_dict(config_dict)
 
     run_args = create_run_arguments(
-        run_paths(config), [True] * ensemble_size, iteration, prior_ensemble
+        run_paths(config), [True] * ensemble_size, prior_ensemble
     )
     assert [real.runpath for real in run_args] == [
         f"{Path().absolute()}/simulations/realization-{i}/iter-0"
@@ -42,7 +42,7 @@ def test_create_run_args_separate_base_and_name(prior_ensemble, run_paths):
     ensemble_size = 10
     config = ErtConfig.from_dict({"JOBNAME": "name<IENS>", "ECLBASE": "base<IENS>"})
     run_args = create_run_arguments(
-        run_paths(config), [True] * ensemble_size, iteration, prior_ensemble
+        run_paths(config), [True] * ensemble_size, prior_ensemble
     )
 
     assert [real.runpath for real in run_args] == [
@@ -75,7 +75,6 @@ def test_assert_symlink_deleted(snake_oil_field_example, storage, run_paths):
     run_args = create_run_arguments(
         runpaths,
         [True] * prior_ensemble.ensemble_size,
-        prior_ensemble.iteration,
         prior_ensemble,
     )
     config = snake_oil_field_example

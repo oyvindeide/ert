@@ -67,7 +67,6 @@ class EvaluateEnsemble(BaseRunModel):
         prior_args = create_run_arguments(
             self.run_paths,
             np.array(self.active_realizations, dtype=bool),
-            iteration=ensemble.iteration,
             ensemble=ensemble,
         )
 

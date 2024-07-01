@@ -549,7 +549,6 @@ def run_args(run_paths):
         return create_run_arguments(
             run_paths(ert_config),
             [True] * active_realizations,
-            ensemble.iteration,
             ensemble,
         )
 

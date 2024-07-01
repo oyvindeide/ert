@@ -399,13 +399,13 @@ def test_that_deprecated_runpath_substitution_remain_valid(
 
 
 @pytest.mark.parametrize("itr", [0, 1, 2, 17])
-def test_write_snakeoil_runpath_file(snake_oil_case, storage, itr, run_args, run_paths):
+def test_write_snakeoil_runpath_file(snake_oil_case, storage, itr):
     ert_config = snake_oil_case
     experiment_id = storage.create_experiment(
         parameters=ert_config.ensemble_config.parameter_configuration
     )
     prior_ensemble = storage.create_ensemble(
-        experiment_id, name="prior", ensemble_size=25
+        experiment_id, name="prior", ensemble_size=25, iteration=itr
     )
 
     num_realizations = 25
@@ -419,14 +419,23 @@ def test_write_snakeoil_runpath_file(snake_oil_case, storage, itr, run_args, run
     global_substitutions = ert_config.substitution_list
     for i in range(num_realizations):
         global_substitutions[f"<GEO_ID_{i}_{itr}>"] = str(10 * i)
-
+    run_paths = Runpaths(
+        jobname_format=jobname_fmt,
+        runpath_format=runpath_fmt,
+        filename=str("a_file_name"),
+        substitution_list=global_substitutions,
+    )
     sample_prior(prior_ensemble, [i for i, active in enumerate(mask) if active])
-    run_arg = run_args(ert_config, prior_ensemble)
+    run_args = create_run_arguments(
+        run_paths,
+        [True, True],
+        prior_ensemble,
+    )
     create_run_path(
-        run_arg,
+        run_args,
         prior_ensemble,
         ert_config,
-        run_paths(ert_config),
+        run_paths,
     )
 
     for run_arg in run_args:
@@ -503,7 +512,6 @@ def _create_runpath(ert_config: ErtConfig, storage: Storage) -> None:
     )
     create_run_path(
         create_run_arguments(run_paths, [True] * ensemble.ensemble_size, ensemble),
-        iteration,
         ensemble,
         ert_config,
         run_paths,
