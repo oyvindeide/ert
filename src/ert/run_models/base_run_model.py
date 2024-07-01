@@ -66,6 +66,7 @@ from ert.runpaths import Runpaths
 from ert.storage import Ensemble, Storage
 from ert.workflow_runner import WorkflowRunner
 
+from ..run_arg import RunArg
 from .event import (
     RunModelDataEvent,
     RunModelErrorEvent,
@@ -510,17 +511,22 @@ class BaseRunModel:
         return True
 
     def run_ensemble_evaluator(
-        self, run_context: RunContext, ee_config: EvaluatorServerConfig
+        self,
+        run_args: List[RunArg],
+        iteration: int,
+        experiment_id: uuid.UUID,
+        ensemble: Ensemble,
+        ee_config: EvaluatorServerConfig,
     ) -> List[int]:
         if not self._end_queue.empty():
             event_logger.debug("Run model canceled - pre evaluation")
             self._end_queue.get()
             return []
-        ensemble = self._build_ensemble(run_context)
+        ee_ensemble = self._build_ensemble(run_args, experiment_id)
         evaluator = EnsembleEvaluator(
-            ensemble,
+            ee_ensemble,
             ee_config,
-            run_context.iteration,
+            iteration,
         )
         evaluator.start_running()
 
@@ -539,20 +545,21 @@ class BaseRunModel:
             self._end_queue.get()
             return []
 
-        run_context.ensemble.unify_parameters()
-        run_context.ensemble.unify_responses()
+        ensemble.unify_parameters()
+        ensemble.unify_responses()
 
         return evaluator.get_successful_realizations()
 
     def _build_ensemble(
         self,
-        run_context: RunContext,
+        run_args: List[RunArg],
+        experiment_id: uuid.UUID,
     ) -> EEEnsemble:
         realizations = []
-        for iens, run_arg in enumerate(run_context):
+        for iens, run_arg in enumerate(run_args):
             realizations.append(
                 Realization(
-                    active=run_context.is_active(iens),
+                    active=run_arg.active,
                     iens=iens,
                     forward_models=self.ert_config.forward_model_steps,
                     max_runtime=self.ert_config.analysis_config.max_runtime,
@@ -566,7 +573,7 @@ class BaseRunModel:
             {},
             self._queue_config,
             self.minimum_required_realizations,
-            str(run_context.ensemble.experiment.id),
+            str(experiment_id),
         )
 
     @property
@@ -641,7 +648,11 @@ class BaseRunModel:
         self.setPhaseName(phase_string)
 
         successful_realizations = self.run_ensemble_evaluator(
-            run_context, evaluator_server_config
+            run_context.run_args,
+            run_context.iteration,
+            run_context.ensemble.experiment_id,
+            run_context.ensemble,
+            evaluator_server_config,
         )
         starting_realizations = run_context.active_realizations
         failed_realizations = list(

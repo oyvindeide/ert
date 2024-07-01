@@ -207,7 +207,7 @@ def test_num_cpu_is_propagated_from_config_to_ensemble(storage):
 
     # Instead of running the BaseRunModel, we only test its implementation detail which is to
     # use _build_ensemble() just prior to running
-    ensemble = brm._build_ensemble(run_context)
+    ensemble = brm._build_ensemble(run_context.run_args, "id")
 
     # Assert the built ensemble has the correct NUM_CPU information
     assert ensemble.reals[0].num_cpu == 42
