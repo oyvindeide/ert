@@ -6,10 +6,10 @@ from uuid import UUID
 import numpy as np
 
 from ert.ensemble_evaluator import EvaluatorServerConfig
-from ert.run_context import create_run_arguments
 from ert.run_models.run_arguments import EvaluateEnsembleRunArguments
 from ert.storage import Ensemble, Storage
 
+from ..run_arg import create_run_arguments
 from . import BaseRunModel
 
 if TYPE_CHECKING:

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, List, Optional
+
+from ert.runpaths import Runpaths
 
 if TYPE_CHECKING:
     from ert.storage import Ensemble
@@ -19,3 +21,31 @@ class RunArg:
     # Below here is legacy related to Everest
     queue_index: Optional[int] = None
     submitted: bool = False
+
+
+def create_run_arguments(
+    runpaths: Runpaths,
+    active_realizations: List[bool],
+    iteration: int,
+    ensemble: Ensemble,
+) -> List[RunArg]:
+    run_args = []
+    runpaths.set_ert_ensemble(ensemble.name)
+    paths = runpaths.get_paths(list(range(len(active_realizations))), iteration)
+    job_names = runpaths.get_jobnames(list(range(len(active_realizations))), iteration)
+
+    for iens, (run_path, job_name, active) in enumerate(
+        zip(paths, job_names, active_realizations)
+    ):
+        run_args.append(
+            RunArg(
+                str(ensemble.id),
+                ensemble,
+                iens,
+                iteration,
+                run_path,
+                job_name,
+                active,
+            )
+        )
+    return run_args

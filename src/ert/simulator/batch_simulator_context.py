@@ -15,14 +15,13 @@ from _ert.threading import ErtThread
 from ert.config import HookRuntime
 from ert.enkf_main import create_run_path
 from ert.ensemble_evaluator import Realization
-from ert.run_context import create_run_arguments
 from ert.runpaths import Runpaths
 from ert.scheduler import Scheduler, create_driver
 from ert.scheduler.job import State as JobState
 from ert.workflow_runner import WorkflowRunner
 
 from ..job_queue import JobQueue, JobStatus
-from ..run_arg import RunArg
+from ..run_arg import RunArg, create_run_arguments
 from ..shared.feature_toggling import FeatureScheduler
 from .forward_model_status import ForwardModelStatus
 

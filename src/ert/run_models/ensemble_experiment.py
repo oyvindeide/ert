@@ -7,9 +7,9 @@ import numpy as np
 
 from ert.enkf_main import sample_prior
 from ert.ensemble_evaluator import EvaluatorServerConfig
-from ert.run_context import create_run_arguments
 from ert.storage import Storage
 
+from ..run_arg import create_run_arguments
 from .base_run_model import BaseRunModel, StatusEvents
 
 if TYPE_CHECKING:

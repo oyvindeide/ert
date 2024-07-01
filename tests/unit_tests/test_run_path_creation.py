@@ -7,7 +7,7 @@ import pytest
 
 from ert.config import ConfigValidationError, ErtConfig
 from ert.enkf_main import create_run_path, sample_prior
-from ert.run_context import create_run_arguments
+from ert.run_arg import create_run_arguments
 from ert.runpaths import Runpaths
 from ert.storage import Storage
 

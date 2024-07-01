@@ -16,8 +16,7 @@ from unittest.mock import MagicMock
 from qtpy.QtWidgets import QApplication
 
 from _ert.threading import set_signal_handler
-from ert.run_arg import RunArg
-from ert.run_context import create_run_arguments
+from ert.run_arg import RunArg, create_run_arguments
 from ert.runpaths import Runpaths
 
 if sys.version_info >= (3, 9):

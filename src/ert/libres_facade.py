@@ -31,7 +31,6 @@ from ert.data import MeasuredData
 from ert.data._measured_data import ObservationError, ResponseError
 from ert.load_status import LoadResult, LoadStatus
 
-from .run_context import create_run_arguments
 from .runpaths import Runpaths
 from .shared.plugins import ErtPluginContext
 
@@ -44,7 +43,7 @@ if TYPE_CHECKING:
         PriorDict,
         WorkflowJob,
     )
-    from ert.run_arg import RunArg
+    from ert.run_arg import RunArg, create_run_arguments
     from ert.storage import Ensemble, Storage
 
 

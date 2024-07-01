@@ -12,12 +12,12 @@ from ert.analysis import ErtAnalysisError, SmootherSnapshot, smoother_update
 from ert.config import ErtConfig, HookRuntime
 from ert.enkf_main import sample_prior
 from ert.ensemble_evaluator import EvaluatorServerConfig
-from ert.run_context import create_run_arguments
 from ert.run_models.run_arguments import ESMDARunArguments
 from ert.storage import Ensemble, Storage
 
 from ..config.analysis_config import UpdateSettings
 from ..config.analysis_module import ESSettings
+from ..run_arg import create_run_arguments
 from .base_run_model import BaseRunModel, ErtRunError, StatusEvents
 from .event import RunModelStatusEvent, RunModelUpdateBeginEvent
 
