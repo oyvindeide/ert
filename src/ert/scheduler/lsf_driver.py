@@ -29,6 +29,7 @@ from typing import (
 
 from .driver import SIGNAL_OFFSET, Driver, FailedSubmit
 from .event import Event, FinishedEvent, StartedEvent
+import os
 
 _POLL_PERIOD = 2.0  # seconds
 LSF_FAILED_JOB = SIGNAL_OFFSET + 65  # first non signal returncode
@@ -309,9 +310,11 @@ class LsfDriver(Driver):
 
         arg_queue_name = ["-q", self._queue_name] if self._queue_name else []
         arg_project_code = ["-P", self._project_code] if self._project_code else []
+        path_env = os.environ["PATH"]
 
         script = (
             "#!/usr/bin/env bash\n"
+            f"export PATH={path_env}\n"
             f"cd {shlex.quote(str(runpath))}\n"
             f"exec -a {shlex.quote(executable)} {executable} {shlex.join(args)}\n"
         )

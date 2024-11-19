@@ -1,3 +1,4 @@
+import asyncio
 import importlib
 import json
 import logging
@@ -8,7 +9,7 @@ import traceback
 from enum import Enum
 from pathlib import Path
 from typing import Literal, Mapping, Optional, Tuple
-
+import shutil
 import requests
 from seba_sqlite.exceptions import ObjectNotFoundError
 from seba_sqlite.snapshot import SebaSnapshot
@@ -57,6 +58,7 @@ async def start_server(config: EverestConfig, debug: bool = False) -> Driver:
         args = ["--config-file", str(config.config_path)]
         if debug:
             args.append("--debug")
+        asyncio.create_task(driver.poll(), name="poll_task")
         await driver.submit(0, "everserver", *args)
     except FailedSubmit as err:
         raise ValueError(f"Failed to submit Everserver with error: {err}") from err
