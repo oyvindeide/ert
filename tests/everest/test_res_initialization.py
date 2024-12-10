@@ -29,7 +29,7 @@ from tests.everest.utils import (
         [
             {
                 "name": "torque",
-                "queue_name": "permanent_8",
+                "queue": "permanent_8",
                 "qsub_cmd": "qsub",
                 "qstat_cmd": "qstat",
                 "qdel_cmd": "qdel",
@@ -52,7 +52,7 @@ from tests.everest.utils import (
         [
             {
                 "name": "slurm",
-                "queue_name": "default-queue",
+                "partition": "default-queue",
                 "memory": "1000M",
                 "exclude_host": "host1,host2,host3,host4",
                 "include_host": "host5,host6,host7,host8",
@@ -73,7 +73,7 @@ from tests.everest.utils import (
         [
             {
                 "name": "lsf",
-                "queue_name": "mr",
+                "lsf_queue": "mr",
                 "lsf_resource": "span = 1 && select[x86 and GNU/Linux]",
             },
             {

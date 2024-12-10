@@ -5,16 +5,13 @@ import os
 import re
 import shutil
 from abc import abstractmethod
-from dataclasses import field
-from copy import copy
-
-from typing import Any, Literal, Mapping, Optional, no_type_check
+from collections.abc import Mapping
+from typing import Any, Literal, no_type_check
 
 import pydantic
-from pydantic import Field, field_validator
+from pydantic import Field, constr, field_validator
 from pydantic.dataclasses import dataclass
 from pydantic_core.core_schema import ValidationInfo
-from typing_extensions import Annotated
 
 from .parsing import (
     BaseModelWithContextSupport,
@@ -29,7 +26,7 @@ from .parsing import (
 
 logger = logging.getLogger(__name__)
 
-NonEmptyString = Annotated[str, pydantic.StringConstraints(min_length=1)]
+NonEmptyString = constr(min_length=1)
 
 
 def activate_script() -> str:
@@ -120,7 +117,6 @@ class LsfQueueOptions(QueueOptions):
     exclude_host: str | None = None
     lsf_queue: NonEmptyString | None = None
     lsf_resource: str | None = None
-
 
     @property
     def driver_options(self) -> dict[str, Any]:
@@ -290,7 +286,7 @@ class QueueConfig:
     queue_options: (
         LsfQueueOptions | TorqueQueueOptions | SlurmQueueOptions | LocalQueueOptions
     ) = pydantic.Field(default_factory=LocalQueueOptions, discriminator="name")
-    queue_options_test_run: LocalQueueOptions = field(default_factory=LocalQueueOptions)
+    queue_options_test_run: LocalQueueOptions = Field(default_factory=LocalQueueOptions)
     stop_long_running: bool = False
 
     @no_type_check

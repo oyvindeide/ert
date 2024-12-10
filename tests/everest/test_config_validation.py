@@ -141,12 +141,10 @@ def test_that_max_runtime_errors_only_on_negative():
 
 
 def test_that_invalid_queue_system_errors():
-    with pytest.raises(ValueError) as e:
+    with pytest.raises(
+        ValueError, match="does not match .*'local',.*'lsf',.*'slurm', .*'torque'"
+    ):
         EverestConfig.with_defaults(simulator={"queue_system": {"name": "docal"}})
-
-    assert has_error(
-        e.value, match="does not match .*'lsf', .*'local', .*'slurm', .*'torque'"
-    )
 
 
 @pytest.mark.parametrize(
