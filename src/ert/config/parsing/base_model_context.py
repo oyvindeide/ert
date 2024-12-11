@@ -10,7 +10,7 @@ init_context_var = ContextVar("_init_context_var", default=None)
 
 @contextmanager
 def init_context(value: dict[str, Any]) -> Iterator[None]:
-    token = init_context_var.set(value)
+    token = init_context_var.set(value)  # type: ignore
     try:
         yield
     finally:

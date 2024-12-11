@@ -45,7 +45,7 @@ class QueueOptions(BaseModelWithContextSupport, validate_assignment=True):
 
     @field_validator("activate_script")
     @classmethod
-    def inject_site_config_script(cls, v: str, info: ValidationInfo):
+    def inject_site_config_script(cls, v: str, info: ValidationInfo) -> str:
         # User value gets highest priority
         if isinstance(v, str):
             return v
