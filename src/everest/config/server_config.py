@@ -1,6 +1,5 @@
 import json
 import os
-from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -33,7 +32,13 @@ The everest server generally has lower resource requirements than forward models
 as RMS and Eclipse.
     """,
     )  # Corresponds to queue name
-    queue_system: LocalQueueOptions | LsfQueueOptions | SlurmQueueOptions | TorqueQueueOptions | None = Field(
+    queue_system: (
+        LocalQueueOptions
+        | LsfQueueOptions
+        | SlurmQueueOptions
+        | TorqueQueueOptions
+        | None
+    ) = Field(
         default=None,
         description="Defines which queue system the everest submits jobs to",
         discriminator="name",

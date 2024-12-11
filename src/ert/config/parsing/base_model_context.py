@@ -1,6 +1,7 @@
+from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import Any, Dict, Iterator
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -8,7 +9,7 @@ init_context_var = ContextVar("_init_context_var", default=None)
 
 
 @contextmanager
-def init_context(value: Dict[str, Any]) -> Iterator[None]:
+def init_context(value: dict[str, Any]) -> Iterator[None]:
     token = init_context_var.set(value)
     try:
         yield

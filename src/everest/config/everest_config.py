@@ -104,7 +104,6 @@ class HasName(Protocol):
     name: str
 
 
-
 class EverestConfig(BaseModelWithPropertySupport, BaseModelWithContextSupport):  # type: ignore
     controls: Annotated[list[ControlConfig], AfterValidator(unique_items)] = Field(
         description="""Defines a list of controls.

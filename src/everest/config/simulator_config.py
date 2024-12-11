@@ -1,4 +1,3 @@
-
 from pydantic import BaseModel, Field, NonNegativeInt, PositiveInt, field_validator
 
 from ert.config.queue_config import (
@@ -31,7 +30,13 @@ class SimulatorConfig(BaseModel, extra="forbid"):  # type: ignore
         A value of 0 means unlimited runtime.
         """,
     )
-    queue_system: LocalQueueOptions | LsfQueueOptions | SlurmQueueOptions | TorqueQueueOptions | None = Field(
+    queue_system: (
+        LocalQueueOptions
+        | LsfQueueOptions
+        | SlurmQueueOptions
+        | TorqueQueueOptions
+        | None
+    ) = Field(
         default=None,
         description="Defines which queue system the everest submits jobs to",
         discriminator="name",
