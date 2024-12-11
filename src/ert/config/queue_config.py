@@ -6,10 +6,10 @@ import re
 import shutil
 from abc import abstractmethod
 from collections.abc import Mapping
-from typing import Any, Literal, no_type_check
+from typing import Annotated, Any, Literal, no_type_check
 
 import pydantic
-from pydantic import Field, constr, field_validator
+from pydantic import Field, field_validator
 from pydantic.dataclasses import dataclass
 from pydantic_core.core_schema import ValidationInfo
 
@@ -26,7 +26,7 @@ from .parsing import (
 
 logger = logging.getLogger(__name__)
 
-NonEmptyString = constr(min_length=1)
+NonEmptyString = Annotated[str, pydantic.StringConstraints(min_length=1)]
 
 
 def activate_script() -> str:
