@@ -101,7 +101,7 @@ class QueueOptions(BaseModelWithContextSupport, validate_assignment=True):
 
 
 class LocalQueueOptions(QueueOptions):
-    name: Literal[QueueSystem.LOCAL, "local", "LOCAL"] = "local"
+    name: Literal[QueueSystem.LOCAL] = QueueSystem.LOCAL
 
     @property
     def driver_options(self) -> dict[str, Any]:
@@ -109,7 +109,7 @@ class LocalQueueOptions(QueueOptions):
 
 
 class LsfQueueOptions(QueueOptions):
-    name: Literal[QueueSystem.LSF, "lsf", "LSF"] = "lsf"
+    name: Literal[QueueSystem.LSF] = QueueSystem.LSF
     bhist_cmd: NonEmptyString | None = None
     bjobs_cmd: NonEmptyString | None = None
     bkill_cmd: NonEmptyString | None = None
@@ -128,7 +128,7 @@ class LsfQueueOptions(QueueOptions):
 
 
 class TorqueQueueOptions(QueueOptions):
-    name: Literal[QueueSystem.TORQUE, "torque", "TORQUE"] = "torque"
+    name: Literal[QueueSystem.TORQUE] = QueueSystem.TORQUE
     qsub_cmd: NonEmptyString | None = None
     qstat_cmd: NonEmptyString | None = None
     qdel_cmd: NonEmptyString | None = None
@@ -166,7 +166,7 @@ class TorqueQueueOptions(QueueOptions):
 
 
 class SlurmQueueOptions(QueueOptions):
-    name: Literal[QueueSystem.SLURM, "SLURM", "slurm"] = "slurm"
+    name: Literal[QueueSystem.SLURM] = QueueSystem.SLURM
     sbatch: NonEmptyString = "sbatch"
     scancel: NonEmptyString = "scancel"
     scontrol: NonEmptyString = "scontrol"
