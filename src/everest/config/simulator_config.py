@@ -7,6 +7,8 @@ from ert.config.queue_config import (
     TorqueQueueOptions,
 )
 
+simulator_example = {"queue_system": {"name": "local", "max_running": 3}}
+
 
 class SimulatorConfig(BaseModel, extra="forbid"):  # type: ignore
     cores_per_node: PositiveInt | None = Field(
