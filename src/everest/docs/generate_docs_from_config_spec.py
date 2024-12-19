@@ -45,7 +45,7 @@ class ParsedField:
         return self.type
 
 
-def parse_field_info(field_infos: dict[str, FieldInfo]):
+def parse_field_info(field_infos: dict[str, FieldInfo]) -> list[ParsedField]:
     """
     Extracts relevant info from a list of pydantic model fields into a convenient
     format of ParsedField items, to be used for further generation of docs
