@@ -357,7 +357,7 @@ def _configure_loggers(detached_dir: Path, log_dir: Path, logging_level: int) ->
 
 def main() -> None:
     arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument("--output-dir", "-o", type=str)
+    arg_parser.add_argument("--output-dir", "-o", type=Path)
     arg_parser.add_argument("--logging-level", "-l", type=int, default=logging.INFO)
     options = arg_parser.parse_args()
 

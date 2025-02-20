@@ -38,7 +38,12 @@ async def test_logging_setup(copy_math_func_test_data_to_tmp):
     everest_config.dump("config_minimal.yml")
 
     makedirs_if_needed(everest_config.output_dir, roll_if_exists=True)
-    driver = await start_server(everest_config, logging.DEBUG)
+    driver = await start_server(
+        "name",
+        everest_config.output_dir,
+        everest_config.server.queue_system,
+        logging_level=logging.DEBUG,
+    )
     try:
         wait_for_server(everest_config.output_dir, 120)
 

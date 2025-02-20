@@ -1,6 +1,7 @@
 import logging
 import os
 from datetime import UTC, datetime
+from pathlib import Path
 
 from ropt.version import version as ropt_version
 
@@ -36,7 +37,8 @@ def str2date(date_str: str) -> datetime:
     return datetime.strptime(date_str, DATE_FORMAT)
 
 
-def makedirs_if_needed(path: str, roll_if_exists: bool = False) -> None:
+def makedirs_if_needed(path: str | Path, roll_if_exists: bool = False) -> None:
+    path = str(path)
     if os.path.isdir(path):
         if not roll_if_exists:
             return

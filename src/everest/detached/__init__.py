@@ -126,7 +126,7 @@ def extract_errors_from_file(path: str) -> list[str]:
     return re.findall(r"(Error \w+.*)", content)
 
 
-def wait_for_server(output_dir: str, timeout: int | float) -> None:
+def wait_for_server(output_dir: Path, timeout: int | float) -> None:
     """
     Checks everest server has started _HTTP_REQUEST_RETRY times. Waits
     progressively longer between each check.
@@ -365,7 +365,7 @@ def update_everserver_status(
             json.dump(new_status, outfile, cls=ServerStatusEncoder)
 
 
-def everserver_status(everserver_status_path: str) -> dict[str, Any]:
+def everserver_status(everserver_status_path: Path) -> dict[str, Any]:
     """Returns a dictionary representing the everest server status. If the
     status file is not found we assume the server has never ran before, and will
     return a status of ServerStatus.never_run
@@ -375,7 +375,7 @@ def everserver_status(everserver_status_path: str) -> dict[str, Any]:
                 'message': None
              }
     """
-    if os.path.exists(everserver_status_path):
+    if everserver_status_path.exists():
         with open(everserver_status_path, encoding="utf-8") as f:
             return json.load(f, object_hook=ServerStatusEncoder.decode)
     else:

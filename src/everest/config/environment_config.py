@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Literal, Self
 
 from numpy.random import SeedSequence
@@ -10,8 +11,10 @@ class EnvironmentConfig(BaseModel, extra="forbid"):
     simulation_folder: str | None = Field(
         default="simulation_folder", description="Folder used for simulation by Everest"
     )
-    output_folder: str | None = Field(
-        default="everest_output", description="Folder for outputs of Everest"
+    output_folder: Path | None = Field(
+        default="everest_output",
+        description="Folder for outputs of Everest",
+        validate_default=True,
     )
     log_level: Literal["debug", "info", "warning", "error", "critical"] | None = Field(
         default="info",
@@ -41,11 +44,11 @@ continue running.
 
     @field_validator("output_folder", mode="before")
     @classmethod
-    def validate_output_folder(cls, output_folder: str | None) -> str:
+    def validate_output_folder(cls, output_folder: Path | None) -> Path:
         if output_folder is None:
             raise ValueError("output_folder can not be None")
         check_path_valid(output_folder)
-        return output_folder
+        return Path(output_folder)
 
     @model_validator(mode="after")
     def validate_random_seed(self) -> Self:

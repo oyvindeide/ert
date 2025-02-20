@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 from argparse import ArgumentParser
@@ -557,22 +558,22 @@ and environment variables are exposed in the form 'os.NAME', for example:
         return levels.get(level.lower(), logging.INFO)
 
     @property
-    def config_directory(self) -> str:
-        return str(self.config_path.parent)
+    def config_directory(self) -> Path:
+        return self.config_path.parent
 
     @property
     def config_file(self) -> str:
         return self.config_path.name
 
     @property
-    def output_dir(self) -> str:
+    def output_dir(self) -> Path:
         assert self.environment is not None
         path = self.environment.output_folder
 
         if path is None:
-            path = DEFAULT_OUTPUT_DIR
+            path = Path(DEFAULT_OUTPUT_DIR)
 
-        if os.path.isabs(path):
+        if path.is_absolute():
             return path
 
         cfgdir = self.config_directory
@@ -580,7 +581,7 @@ and environment variables are exposed in the form 'os.NAME', for example:
         if cfgdir is None:
             return path
 
-        return os.path.join(cfgdir, path)
+        return cfgdir / path
 
     @property
     def simulation_dir(self) -> str | None:
@@ -773,8 +774,7 @@ and environment variables are exposed in the form 'os.NAME', for example:
 
     def dump(self, fname: str | None = None) -> str | None:
         """Write a config dict to file or return it if fname is None."""
-        stripped_conf = self.to_dict()
-
+        stripped_conf = json.loads(self.model_dump_json())
         del stripped_conf["config_path"]
 
         yaml = YAML(typ="safe", pure=True)
@@ -783,7 +783,6 @@ and environment variables are exposed in the form 'os.NAME', for example:
             with StringIO() as sio:
                 yaml.dump(stripped_conf, sio)
                 return sio.getvalue()
-
         with open(fname, "w", encoding="utf-8") as out:
             yaml.dump(stripped_conf, out)
 

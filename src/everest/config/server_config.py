@@ -1,5 +1,5 @@
 import json
-import os
+from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -65,7 +65,7 @@ class ServerConfig(BaseModel):
         return f"https://{server_info['host']}:{server_info['port']}"
 
     @staticmethod
-    def get_server_context(output_dir: str) -> tuple[str, str, tuple[str, str]]:
+    def get_server_context(output_dir: Path) -> tuple[str, str, tuple[str, str]]:
         """Returns a tuple with
         - url of the server
         - path to the .cert file
@@ -79,7 +79,7 @@ class ServerConfig(BaseModel):
         )
 
     @staticmethod
-    def get_server_info(output_dir: str) -> dict[str, Any]:
+    def get_server_info(output_dir: Path) -> dict[str, Any]:
         """Load server information from the hostfile"""
         host_file_path = ServerConfig.get_hostfile_path(output_dir)
         try:
@@ -95,25 +95,30 @@ class ServerConfig(BaseModel):
             return {"host": None, "port": None, "cert": None, "auth": None}
 
     @staticmethod
-    def get_detached_node_dir(output_dir: str) -> str:
-        return os.path.join(os.path.abspath(output_dir), DETACHED_NODE_DIR)
+    def get_detached_node_dir(output_dir: Path | str) -> Path:
+        output_dir = Path(output_dir) if isinstance(output_dir, str) else output_dir
+        return output_dir.absolute() / DETACHED_NODE_DIR
 
     @staticmethod
-    def get_hostfile_path(output_dir: str) -> str:
-        return os.path.join(ServerConfig.get_session_dir(output_dir), HOSTFILE_NAME)
+    def get_hostfile_path(output_dir: Path | str) -> Path:
+        output_dir = Path(output_dir) if isinstance(output_dir, str) else output_dir
+        return ServerConfig.get_session_dir(output_dir) / HOSTFILE_NAME
 
     @staticmethod
-    def get_session_dir(output_dir: str) -> str:
+    def get_session_dir(output_dir: Path | str) -> Path:
         """Return path to the session directory containing information about the
         certificates and host information"""
-        return os.path.join(ServerConfig.get_detached_node_dir(output_dir), SESSION_DIR)
+        output_dir = Path(output_dir) if isinstance(output_dir, str) else output_dir
+        return ServerConfig.get_detached_node_dir(output_dir) / SESSION_DIR
 
     @staticmethod
-    def get_everserver_status_path(output_dir: str) -> str:
+    def get_everserver_status_path(output_dir: Path | str) -> Path:
         """Returns path to the everest server status file"""
-        return os.path.join(ServerConfig.get_session_dir(output_dir), SERVER_STATUS)
+        output_dir = Path(output_dir) if isinstance(output_dir, str) else output_dir
+        return ServerConfig.get_session_dir(output_dir) / SERVER_STATUS
 
     @staticmethod
-    def get_certificate_dir(output_dir: str) -> str:
+    def get_certificate_dir(output_dir: Path | str) -> Path:
         """Return the path to certificate folder"""
-        return os.path.join(ServerConfig.get_session_dir(output_dir), CERTIFICATE_DIR)
+        output_dir = Path(output_dir) if isinstance(output_dir, str) else output_dir
+        return ServerConfig.get_session_dir(output_dir) / CERTIFICATE_DIR

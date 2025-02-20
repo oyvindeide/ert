@@ -60,7 +60,9 @@ async def test_https_requests(copy_math_func_test_data_to_tmp):
     expected_server_status = ServerStatus.never_run
     assert expected_server_status == everserver_status(status_path)["status"]
     makedirs_if_needed(everest_config.output_dir, roll_if_exists=True)
-    await start_server("name", ".", everest_config.server.queue_system)
+    await start_server(
+        "name", everest_config.output_dir, everest_config.server.queue_system
+    )
     try:
         wait_for_server(everest_config.output_dir, 240)
     except SystemExit as e:
