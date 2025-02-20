@@ -60,7 +60,7 @@ async def test_https_requests(copy_math_func_test_data_to_tmp):
     expected_server_status = ServerStatus.never_run
     assert expected_server_status == everserver_status(status_path)["status"]
     makedirs_if_needed(everest_config.output_dir, roll_if_exists=True)
-    await start_server(everest_config)
+    await start_server("name", ".", everest_config.server.queue_system)
     try:
         wait_for_server(everest_config.output_dir, 240)
     except SystemExit as e:
@@ -331,7 +331,9 @@ if __name__ == "__main__":
         )
     everserver_path.chmod(everserver_path.stat().st_mode | stat.S_IEXEC)
     makedirs_if_needed(everest_config.output_dir, roll_if_exists=True)
-    driver = await start_server(everest_config, logging_level=logging.DEBUG)
+    driver = await start_server(
+        "name", ".", everest_config.server.queue_system, logging_level=logging.DEBUG
+    )
     final_state = await server_running()
     assert final_state.returncode == 0
 

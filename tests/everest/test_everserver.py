@@ -35,7 +35,12 @@ async def wait_for_server_to_complete(config):
             if isinstance(event, FinishedEvent) and event.iens == 0:
                 return
 
-    driver = await start_server(config, logging.DEBUG)
+    driver = await start_server(
+        "name",
+        config.output_dir,
+        config.server.queue_system,
+        logging_level=logging.DEBUG,
+    )
     try:
         wait_for_server(config.output_dir, 120)
         start_experiment(

@@ -8,6 +8,7 @@ import os
 import signal
 import threading
 from functools import partial
+from pathlib import Path
 
 from ert.config.ert_config import ErtConfig
 from everest.config import EverestConfig, ServerConfig
@@ -122,24 +123,29 @@ async def run_everest(options):
             ErtConfig.with_plugins().from_dict(dict)
         except ValueError as exc:
             raise SystemExit(f"Config validation error: {exc}") from exc
-
+        config = options.config
         if (
-            options.config.simulation_dir is not None
-            and os.path.exists(options.config.simulation_dir)
-            and any(os.listdir(options.config.simulation_dir))
+            config.simulation_dir is not None
+            and os.path.exists(config.simulation_dir)
+            and any(os.listdir(config.simulation_dir))
         ):
             warn_user_that_runpath_is_nonempty()
 
         try:
-            output_dir = options.config.output_dir
-            config_file = options.config.config_file
+            output_dir = config.output_dir
+            config_file = config.config_file
             save_config_path = os.path.join(output_dir, config_file)
             options.config.dump(save_config_path)
         except (OSError, LookupError) as e:
             logging.getLogger(EVEREST).error(f"Failed to save optimization config: {e}")
 
-        logging_level = logging.DEBUG if options.debug else options.config.logging_level
-        await start_server(options.config, logging_level)
+        logging_level = logging.DEBUG if options.debug else config.logging_level
+        await start_server(
+            Path(config.config_file).stem,
+            config.output_dir,
+            config.server.queue_system,
+            logging_level,
+        )
         print("Waiting for server ...")
         wait_for_server(options.config.output_dir, timeout=600)
         print("Everest server found!")

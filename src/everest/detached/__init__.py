@@ -14,6 +14,7 @@ from typing import Any, Literal
 import polars as pl
 import requests
 
+from ert.config.queue_config import QueueOptions
 from ert.scheduler import create_driver
 from ert.scheduler.driver import Driver, FailedSubmit
 from ert.scheduler.event import StartedEvent
@@ -43,21 +44,24 @@ PROXY = {"http": None, "https": None}
 
 
 async def start_server(
-    config: EverestConfig, logging_level: int = logging.INFO
+    server_name: str,
+    output_dir: Path,
+    queue_options: QueueOptions,
+    logging_level: int = logging.INFO,
 ) -> Driver:
     """
-    Start an Everest server running the optimization defined in the config
+    Start an Everest server and wait for confirmation from driver
     """
-    driver = create_driver(config.server.queue_system)  # type: ignore
+    driver = create_driver(queue_options)  # type: ignore
     try:
         args = [
             "--output-dir",
-            str(config.output_dir),
+            str(output_dir),
             "--logging-level",
             str(logging_level),
         ]
         poll_task = asyncio.create_task(driver.poll(), name="poll_task")
-        await driver.submit(0, "everserver", *args, name=Path(config.config_file).stem)
+        await driver.submit(0, "everserver", *args, name=server_name)
     except FailedSubmit as err:
         raise ValueError(f"Failed to submit Everserver with error: {err}") from err
     status = await driver.event_queue.get()
