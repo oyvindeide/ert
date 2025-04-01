@@ -3,8 +3,9 @@ from __future__ import annotations
 import logging
 import os
 from collections import Counter
-from dataclasses import dataclass, field
 from typing import no_type_check, overload
+
+from pydantic import BaseModel, Field
 
 from ert.field_utils import get_shape
 
@@ -40,15 +41,14 @@ def _get_abs_path(file: str | None) -> str | None:
     return file
 
 
-@dataclass
-class EnsembleConfig:
+class EnsembleConfig(BaseModel):
     grid_file: str | None = None
-    response_configs: dict[str, SummaryConfig | GenDataConfig] = field(
+    response_configs: dict[str, SummaryConfig | GenDataConfig] = Field(
         default_factory=dict
     )
     parameter_configs: dict[
         str, GenKwConfig | FieldConfig | SurfaceConfig | ExtParamConfig
-    ] = field(default_factory=dict)
+    ] = Field(default_factory=dict)
     refcase: Refcase | None = None
 
     def __post_init__(self) -> None:

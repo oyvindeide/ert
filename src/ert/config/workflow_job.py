@@ -4,8 +4,10 @@ import logging
 import os
 from argparse import ArgumentParser
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import field
 from typing import TypeAlias
+
+from pydantic import BaseModel
 
 from ..plugins.ert_plugin import ErtPlugin
 from ..plugins.ert_script import ErtScript
@@ -87,8 +89,7 @@ def workflow_job_from_file(config_file: str, name: str | None = None) -> _Workfl
         )
 
 
-@dataclass
-class _WorkflowJob:
+class _WorkflowJob(BaseModel):
     name: str
     min_args: int | None = None
     max_args: int | None = None
@@ -127,12 +128,10 @@ class _WorkflowJob:
         return False
 
 
-@dataclass
 class ExecutableWorkflow(_WorkflowJob):
     executable: str | None = None
 
 
-@dataclass
 class ErtScriptWorkflow(_WorkflowJob):
     """
     Single workflow configuration object
