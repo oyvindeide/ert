@@ -15,12 +15,13 @@ from .parsing import (
     ConfigDict,
     ConfigKeys,
     ConfigValidationError,
-    ConfigWarning,
+    ConfigWarning, HistorySource,
 )
 
 logger = logging.getLogger(__name__)
 
 
+DEFAULT_HISTORY_SOURCE = HistorySource.REFCASE_HISTORY
 DEFAULT_RUNPATH = "simulations/realization-<IENS>/iter-<ITER>"
 DEFAULT_GEN_KW_EXPORT_NAME = "parameters"
 DEFAULT_JOBNAME_FORMAT = "<CONFIG_FILE>-<IENS>"

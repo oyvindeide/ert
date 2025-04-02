@@ -936,8 +936,9 @@ class ErtConfig:
                         [key] for key in summary_obs if key not in summary_keys
                     ]
             ensemble_config = EnsembleConfig.from_dict(config_dict=config_dict)
+            time_map_args = config_dict.get(ConfigKeys.TIME_MAP)
             time_map = None
-            if time_map_args := config_dict.get(ConfigKeys.TIME_MAP):
+            if time_map_args is not None:
                 time_map_file, time_map_contents = time_map_args
                 try:
                     time_map = _read_time_map(time_map_contents)
@@ -946,14 +947,19 @@ class ErtConfig:
                         f"Could not read timemap file {time_map_file}: {err}",
                         time_map_file,
                     ) from err
-            observations = cls._create_observations(
-                obs_configs,
-                ensemble_config,
-                time_map,
-                config_dict.get(
-                    ConfigKeys.HISTORY_SOURCE, HistorySource.REFCASE_HISTORY
-                ),
-            )
+            if model_config:
+                observations = cls._create_observations(
+                    obs_configs,
+                    ensemble_config,
+                    time_map,
+                    model_config.history_source,
+                )
+            else:
+                errors.append(
+                    ConfigValidationError(
+                        "Not possible to validate observations without valid model config"
+                    )
+                )
         except ConfigValidationError as err:
             errors.append(err)
 
