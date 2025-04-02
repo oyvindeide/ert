@@ -640,7 +640,7 @@ def test_init_egg_model(copy_egg_test_data_to_tmp):
     ert_config = _everest_to_ert_config_dict(
         config, site_config=ErtConfig.read_site_config()
     )
-    ErtConfig.with_plugins().from_dict(config_dict=ert_config)
+    ErtConfig.with_plugins(config_dict=ert_config)
 
 
 @pytest.mark.integration_test

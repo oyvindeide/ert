@@ -77,7 +77,7 @@ def test_rft_csv_export_plugin_exports_rft_data(
 
     output_file = Path("output.csv")
     with ErtPluginContext():
-        ert_config = ErtConfig.with_plugins().from_file(args.config)
+        ert_config = ErtConfig.from_file(args.config)
     with (
         open_storage(ert_config.ens_path, mode="w") as storage,
     ):

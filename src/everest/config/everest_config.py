@@ -770,9 +770,7 @@ and environment variables are exposed in the form 'os.NAME', for example:
     def with_plugins(cls, config_dict: dict[str, Any] | ConfigDict) -> Self:
         site_config = ErtConfig.read_site_config()
         has_site_config = bool(site_config)  # site_config gets mutated by next call
-        ert_config: ErtConfig = ErtConfig.with_plugins().from_dict(
-            config_dict=site_config
-        )
+        ert_config: ErtConfig = ErtConfig.with_plugins(config_dict=site_config)
         context: dict[str, Any] = {
             "install_jobs": ert_config.installed_forward_model_steps,
         }

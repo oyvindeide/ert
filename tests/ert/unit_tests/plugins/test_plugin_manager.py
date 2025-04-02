@@ -324,7 +324,7 @@ def test_activate_script_plugin_integration_from_dict():
         ert.config.ert_config.ErtPluginManager, plugins=[ActivatePlugin()]
     )
     with patch("ert.config.ert_config.ErtPluginManager", patched):
-        config = ErtConfig.with_plugins().from_dict(
+        config = ErtConfig.with_plugins(
             {
                 "NUM_REALIZATIONS": 1,
             }

@@ -85,7 +85,7 @@ def _open_main_window(path) -> Iterator[tuple[ErtMainWindow, Storage, ErtConfig]
     args_mock = Mock()
     args_mock.config = str(path)
     with ErtPluginContext():
-        config = ErtConfig.with_plugins().from_file(path)
+        config = ErtConfig.from_file(path)
         with (
             open_storage(config.ens_path, mode="w") as storage,
             add_gui_log_handler() as log_handler,

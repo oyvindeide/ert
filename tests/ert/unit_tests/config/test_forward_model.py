@@ -388,7 +388,7 @@ def test_that_forward_model_substitution_does_not_warn_about_reaching_max_iterat
     with open(test_config_file_name, "w", encoding="utf-8") as fh:
         fh.write(test_config_contents)
 
-    ert_config = ErtConfig.with_plugins().from_file(test_config_file_name)
+    ert_config = ErtConfig.from_file(test_config_file_name)
     with caplog.at_level(logging.WARNING):
         create_forward_model_json(
             context=ert_config.substitutions,
@@ -491,7 +491,7 @@ def test_that_eclipse_fm_step_check_version_availability(eclipse_v):
         ConfigValidationError,
         match=rf".*Unavailable {eclipse_v} version dummy. Available versions: \[\'20.*",
     ):
-        ErtConfig.with_plugins().from_file(config_file_name)
+        ErtConfig.from_file(config_file_name)
 
 
 @pytest.mark.parametrize("eclipse_v", ["ECLIPSE100", "ECLIPSE300"])
@@ -518,7 +518,7 @@ def test_that_we_can_point_to_a_custom_eclrun_when_checking_versions(eclipse_v):
             rf"Available versions: \[\'2036.1.*"
         ),
     ):
-        ErtConfig.with_plugins().from_file(config_file_name)
+        ErtConfig.from_file(config_file_name)
 
 
 @pytest.mark.skipif(shutil.which("eclrun") is not None, reason="eclrun is present")

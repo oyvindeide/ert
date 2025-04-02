@@ -135,7 +135,7 @@ def _start_initial_gui_window(
         # the config file to be the base name of the original config
         args.config = os.path.basename(args.config)
 
-        ert_config = ErtConfig.with_plugins().from_file(args.config)
+        ert_config = ErtConfig.from_file(args.config)
 
         local_storage_set_ert_config(ert_config)
 

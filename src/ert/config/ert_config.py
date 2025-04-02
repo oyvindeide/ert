@@ -5,23 +5,16 @@ import os
 import pprint
 import re
 from collections import defaultdict
-<<<<<<< HEAD
 from collections.abc import Mapping, Sequence
 from dataclasses import field
-=======
-from collections.abc import Sequence
->>>>>>> b129e5a6c (Convert to BaseModel)
 from datetime import datetime
 from os import path
 from pathlib import Path
 from typing import Any, ClassVar, Self, no_type_check, overload
 
 import polars as pl
-<<<<<<< HEAD
 from numpy.random import SeedSequence
-=======
 from pydantic import BaseModel, Field, field_validator, model_validator
->>>>>>> b129e5a6c (Convert to BaseModel)
 from pydantic import ValidationError as PydanticValidationError
 
 from ert.plugins import ErtPluginManager, fixtures_per_hook
@@ -43,6 +36,7 @@ from .observation_vector import ObsVector
 from .observations import EnkfObs
 from .parse_arg_types_list import parse_arg_types_list
 from .parsing import (
+    BaseModelWithContextSupport,
     ConfigDict,
     ConfigKeys,
     ConfigValidationError,
@@ -58,6 +52,7 @@ from .parsing import (
     parse_contents,
     read_file,
 )
+from .parsing.base_model_context import init_context
 from .parsing.observations_parser import (
     GenObsValues,
     HistoryValues,
@@ -667,7 +662,7 @@ def create_list_of_forward_model_steps_to_run(
     return fm_steps
 
 
-class ErtConfig(BaseModel):
+class ErtConfig(BaseModelWithContextSupport):
     DEFAULT_ENSPATH: ClassVar[str] = "storage"
     DEFAULT_RUNPATH_FILE: ClassVar[str] = ".ert_runpath_list"
     PREINSTALLED_FORWARD_MODEL_STEPS: ClassVar[dict[str, ForwardModelStep]] = {}
@@ -678,23 +673,13 @@ class ErtConfig(BaseModel):
     substitutions: Substitutions = Field(default_factory=Substitutions)
     ensemble_config: EnsembleConfig = Field(default_factory=EnsembleConfig)
     ens_path: str = DEFAULT_ENSPATH
-<<<<<<< HEAD
-    env_vars: dict[str, str] = field(default_factory=dict)
-    random_seed: int = field(default_factory=lambda: _seed_sequence(None))
-    analysis_config: AnalysisConfig = field(default_factory=AnalysisConfig)
-    queue_config: QueueConfig = field(default_factory=QueueConfig)
-    workflow_jobs: dict[str, _WorkflowJob] = field(default_factory=dict)
-    workflows: dict[str, Workflow] = field(default_factory=dict)
-    hooked_workflows: defaultdict[HookRuntime, list[Workflow]] = field(
-=======
     env_vars: dict[str, str] = Field(default_factory=dict)
-    random_seed: int | None = None
+    random_seed: int = field(default_factory=lambda: _seed_sequence(None))
     analysis_config: AnalysisConfig = Field(default_factory=AnalysisConfig)
     queue_config: QueueConfig = Field(default_factory=QueueConfig)
     workflow_jobs: dict[str, _WorkflowJob] = Field(default_factory=dict)
     workflows: dict[str, Workflow] = Field(default_factory=dict)
     hooked_workflows: defaultdict[HookRuntime, list[Workflow]] = Field(
->>>>>>> b129e5a6c (Convert to BaseModel)
         default_factory=lambda: defaultdict(list)
     )
     runpath_file: Path = Path(DEFAULT_RUNPATH_FILE)
@@ -754,35 +739,24 @@ class ErtConfig(BaseModel):
 
         return True
 
-    @staticmethod
-    def with_plugins(
-        forward_model_step_classes: list[type[ForwardModelStepPlugin]] | None = None,
-        env_pr_fm_step: dict[str, dict[str, Any]] | None = None,
-    ) -> type["ErtConfig"]:
+    @classmethod
+    def with_plugins(cls, config_dict) -> Self:
         pm = ErtPluginManager()
-        if forward_model_step_classes is None:
-            forward_model_step_classes = pm.forward_model_steps
-
         preinstalled_fm_steps: dict[str, ForwardModelStepPlugin] = {}
-        for fm_step_subclass in forward_model_step_classes:
+        for fm_step_subclass in pm.forward_model_steps:
             fm_step = fm_step_subclass()
             preinstalled_fm_steps[fm_step.name] = fm_step
 
-        if env_pr_fm_step is None:
-            env_pr_fm_step = uppercase_subkeys_and_stringify_subvalues(
+        context: dict[str, Any] = {
+            "install_jobs": preinstalled_fm_steps,
+            "installed_workflows": pm.get_ertscript_workflows().get_workflows(),
+            "environment_pr_fm_step": uppercase_subkeys_and_stringify_subvalues(
                 pm.get_forward_model_configuration()
-            )
-
-        class ErtConfigWithPlugins(ErtConfig):
-            PREINSTALLED_FORWARD_MODEL_STEPS: ClassVar[
-                dict[str, ForwardModelStepPlugin]
-            ] = preinstalled_fm_steps
-            PREINSTALLED_WORKFLOWS = pm.get_ertscript_workflows().get_workflows()
-            ENV_PR_FM_STEP: ClassVar[dict[str, dict[str, Any]]] = env_pr_fm_step
-            ACTIVATE_SCRIPT = pm.activate_script()
-
-        assert issubclass(ErtConfigWithPlugins, ErtConfig)
-        return ErtConfigWithPlugins
+            ),
+            "activate_script": pm.activate_script(),
+        }
+        with init_context(context):
+            return cls.from_dict(config_dict)
 
     @classmethod
     def from_file(cls, user_config_file: str) -> Self:
@@ -809,7 +783,7 @@ class ErtConfig(BaseModel):
             site_config_file,
         )
         cls._log_config_dict(user_config_dict)
-        return cls.from_dict(user_config_dict)
+        return cls.with_plugins(user_config_dict)
 
     @classmethod
     def _config_dict_from_contents(
@@ -845,7 +819,7 @@ class ErtConfig(BaseModel):
         config_file_name="./config.ert",
         site_config_name="site_config.ert",
     ) -> Self:
-        return cls.from_dict(
+        return cls.with_plugins(
             cls._config_dict_from_contents(
                 user_config_contents,
                 site_config_contents,

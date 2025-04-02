@@ -113,7 +113,7 @@ def test_that_storage_matches(
         tmp_path / "all_data_types" / f"storage-{ert_version}",
     )
     monkeypatch.chdir(tmp_path / "all_data_types")
-    ert_config = ErtConfig.with_plugins().from_file("config.ert")
+    ert_config = ErtConfig.from_file("config.ert")
     local_storage_set_ert_config(ert_config)
     # To make sure all tests run against the same snapshot
     snapshot.snapshot_dir = snapshot.snapshot_dir.parent
@@ -298,7 +298,7 @@ def test_that_storage_works_with_missing_parameters_and_responses(
         os.remove(real_dir / gen_data_file)
 
     monkeypatch.chdir(tmp_path / "all_data_types")
-    ert_config = ErtConfig.with_plugins().from_file("config.ert")
+    ert_config = ErtConfig.from_file("config.ert")
     local_storage_set_ert_config(ert_config)
     # To make sure all tests run against the same snapshot
     snapshot.snapshot_dir = snapshot.snapshot_dir.parent
@@ -388,7 +388,7 @@ def test_that_manual_update_from_migrated_storage_works(
         tmp_path / "all_data_types" / f"storage-{ert_version}",
     )
     monkeypatch.chdir(tmp_path / "all_data_types")
-    ert_config = ErtConfig.with_plugins().from_file("config.ert")
+    ert_config = ErtConfig.from_file("config.ert")
     local_storage_set_ert_config(ert_config)
     # To make sure all tests run against the same snapshot
     snapshot.snapshot_dir = snapshot.snapshot_dir.parent
@@ -550,7 +550,7 @@ def test_migrate_storage_with_no_responses(
         os.remove(real_dir / summary_file)
 
     monkeypatch.chdir(tmp_path / "all_data_types")
-    ert_config = ErtConfig.with_plugins().from_file("config.ert")
+    ert_config = ErtConfig.from_file("config.ert")
     local_storage_set_ert_config(ert_config)
 
     open_storage(f"storage-{ert_version}", "w")
