@@ -14,7 +14,7 @@ from typing import Any, ClassVar, Self, no_type_check, overload
 
 import polars as pl
 from numpy.random import SeedSequence
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic import ValidationError as PydanticValidationError
 
 from ert.plugins import ErtPluginManager, fixtures_per_hook
@@ -31,7 +31,7 @@ from .forward_model_step import (
     ForwardModelStepValidationError,
 )
 from .gen_kw_config import GenKwConfig
-from .model_config import ModelConfig
+from .model_config import DEFAULT_HISTORY_SOURCE, ModelConfig
 from .observation_vector import ObsVector
 from .observations import EnkfObs
 from .parse_arg_types_list import parse_arg_types_list
@@ -932,7 +932,7 @@ class ErtConfig(BaseModelWithContextSupport):
                     ]
             ensemble_config = EnsembleConfig.from_dict(config_dict=config_dict)
             time_map = None
-            if time_map_args := config_dict.get(ConfigKeys.TIME_MAP) is not None:
+            if time_map_args := config_dict.get(ConfigKeys.TIME_MAP):
                 time_map_file, time_map_contents = time_map_args
                 try:
                     time_map = _read_time_map(time_map_contents)
@@ -941,19 +941,12 @@ class ErtConfig(BaseModelWithContextSupport):
                         f"Could not read timemap file {time_map_file}: {err}",
                         time_map_file,
                     ) from err
-            if model_config:
-                observations = cls._create_observations(
-                    obs_configs,
-                    ensemble_config,
-                    time_map,
-                    model_config.history_source,
-                )
-            else:
-                errors.append(
-                    ConfigValidationError(
-                        "Not possible to validate observations without valid model config"
-                    )
-                )
+            observations = cls._create_observations(
+                obs_configs,
+                ensemble_config,
+                time_map,
+                config_dict.get(ConfigKeys.HISTORY_SOURCE, DEFAULT_HISTORY_SOURCE),
+            )
         except ConfigValidationError as err:
             errors.append(err)
 
