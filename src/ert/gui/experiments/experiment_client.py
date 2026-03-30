@@ -8,6 +8,7 @@ import traceback
 from base64 import b64encode
 from http import HTTPStatus
 from pathlib import Path
+from typing import Any
 
 import requests
 from pydantic import ValidationError
@@ -16,8 +17,7 @@ from websockets.exceptions import ConnectionClosedError
 from websockets.sync.client import connect
 
 from _ert.threading import ErtThread
-from ert.ensemble_evaluator import EvaluatorServerConfig
-from ert.run_models import RunModelAPI
+from ert.run_models import RunModelAPI, RunModelConfigUnion
 from ert.run_models.event import StatusEvents, status_event_from_json
 from everest.strings import EverEndpoints
 
@@ -44,15 +44,18 @@ class ExperimentClient:
 
     def _http_get(self, endpoint: EverEndpoints) -> requests.Response:
         return requests.get(
-            f"{self._url}/{endpoint}",
+            f"{self._url}/experiment_server/{endpoint}",
             verify=self._cert,
             auth=(self._username, self._password),
             proxies={"http": None, "https": None},  # type: ignore
         )
 
-    def _http_post(self, endpoint: EverEndpoints) -> requests.Response:
+    def _http_post(
+        self, endpoint: EverEndpoints, json: Any = None
+    ) -> requests.Response:
         return requests.post(
-            f"{self._url}/{endpoint}",
+            f"{self._url}/experiment_server/{endpoint}",
+            json=json,
             verify=self._cert,
             auth=(self._username, self._password),
             proxies={"http": None, "https": None},  # type: ignore
@@ -66,8 +69,22 @@ class ExperimentClient:
     def credentials(self) -> str:
         return b64encode(f"{self._username}:{self._password}".encode()).decode()
 
+    def start_experiment(
+        self,
+        config: RunModelConfigUnion,
+        rerun_failed_realizations: bool = False,
+    ) -> str:
+        """POST a run model config to the server; returns the run_id."""
+        response = self._http_post(
+            EverEndpoints.start_experiment,
+            json=config.model_dump(mode="json"),
+        )
+        response.raise_for_status()
+        return response.json()["run_id"]
+
     def setup_event_queue_from_ws_endpoint(
         self,
+        run_id: str | None = None,
         refresh_interval: float = 0.01,
         open_timeout: float = 30,
         websocket_recv_timeout: float = 1.0,
@@ -77,7 +94,9 @@ class ExperimentClient:
         def passthrough_ws_events() -> None:
             try:
                 with connect(
-                    self._url.replace("https://", "wss://") + "/events",
+                    self._url.replace("https://", "wss://")
+                    + "/experiment_server/events"
+                    + (f"?run_id={run_id}" if run_id else ""),
                     ssl=self._ssl_context,
                     open_timeout=open_timeout,
                     additional_headers={"Authorization": f"Basic {self.credentials}"},
@@ -110,17 +129,22 @@ class ExperimentClient:
 
         return event_queue, monitor_thread
 
-    def create_run_model_api(self) -> RunModelAPI:
-        def start_fn(
-            evaluator_server_config: EvaluatorServerConfig,
-            rerun_failed_realizations: bool = False,
-        ) -> None:
-            pass
+    def create_run_model_api(
+        self, config: RunModelConfigUnion | None = None
+    ) -> RunModelAPI:
+        if config is None:
+            experiment_name = Path(self.config["config_path"]).name
+            supports_rerunning = False
+        else:
+            experiment_name = config.model_type
+            supports_rerunning = config.model_type in {
+                "EnsembleExperiment",
+                "EvaluateEnsemble",
+            }
 
         return RunModelAPI(
-            experiment_name=Path(self.config["config_path"]).name,
-            supports_rerunning_failed_realizations=False,
-            start_simulations_thread=start_fn,
+            experiment_name=experiment_name,
+            supports_rerunning_failed_realizations=supports_rerunning,
             cancel=self.stop,
             has_failed_realizations=lambda: False,
         )
@@ -134,8 +158,8 @@ class ExperimentClient:
                 print("Successfully cancelled experiment")
             else:
                 logger.error(
-                    f"Failed to cancel EVEREST experiment: "
-                    f"POST @ {self._url}/{EverEndpoints.stop}, "
+                    f"Failed to cancel experiment: "
+                    f"POST @ {self._url}/experiment_server/{EverEndpoints.stop}, "
                     f"server responded with status {response.status_code}: "
                     f"{HTTPStatus(response.status_code).phrase}"
                 )

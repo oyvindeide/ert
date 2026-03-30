@@ -17,11 +17,11 @@ from enum import IntEnum, auto
 from functools import cached_property
 from pathlib import Path
 from types import TracebackType
-from typing import TYPE_CHECKING, Annotated, Any, Protocol
+from typing import TYPE_CHECKING, Annotated, Any, Literal, Protocol
 
 import numpy as np
 from numpy.typing import NDArray
-from pydantic import Field, PrivateAttr, TypeAdapter, ValidationError
+from pydantic import BaseModel, Field, PrivateAttr, TypeAdapter, ValidationError
 from ropt.enums import ExitCode as RoptExitCode
 from ropt.evaluator import EvaluatorContext, EvaluatorResult
 from ropt.results import FunctionResults, Results
@@ -233,7 +233,17 @@ EverestResponseTypesAdapter = TypeAdapter(  # type: ignore
 )
 
 
-class EverestRunModelConfig(RunModelConfig):
+class EverestRunModelConfig(BaseModel):
+    """Transport config for the HTTP layer — wraps raw EverestConfig."""
+
+    model_type: Literal["EverestRunModel"] = "EverestRunModel"
+    everest_config: EverestConfig
+
+
+class _EverestRunModelInternalConfig(RunModelConfig):
+    """Internal resolved fields used by EverestRunModel at runtime."""
+
+    model_type: Literal["EverestRunModel"] = "EverestRunModel"
     optimization_output_dir: str
     simulation_dir: str
 
@@ -248,7 +258,7 @@ class EverestRunModelConfig(RunModelConfig):
     target_ensemble: str
 
 
-class EverestRunModel(RunModel, EverestRunModelConfig):
+class EverestRunModel(RunModel, _EverestRunModelInternalConfig):
     _exit_code: EverestExitCode | None = PrivateAttr(default=None)
     _experiment: Experiment | None = PrivateAttr(default=None)
     _eval_server_cfg: EvaluatorServerConfig | None = PrivateAttr(default=None)

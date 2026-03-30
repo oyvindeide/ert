@@ -466,6 +466,7 @@
       "radius": null
     }
   ],
+  "model_type": "MultipleDataAssimilation",
   "restart_run": false,
   "prior_ensemble_id": null,
   "weights": "4, 2, 1",

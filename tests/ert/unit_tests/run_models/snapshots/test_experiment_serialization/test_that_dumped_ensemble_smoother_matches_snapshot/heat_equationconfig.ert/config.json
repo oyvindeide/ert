@@ -806,5 +806,6 @@
       "radius": 3.0
     }
   ],
+  "model_type": "EnsembleSmoother",
   "experiment_type": "Ensemble Smoother"
 }

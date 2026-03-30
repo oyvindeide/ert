@@ -295,6 +295,7 @@
       "radius": null
     }
   ],
+  "model_type": "EnsembleExperiment",
   "target_ensemble": "the_experiment",
   "experiment_type": "Ensemble Experiment"
 }

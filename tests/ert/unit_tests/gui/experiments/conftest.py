@@ -1,12 +1,18 @@
 from datetime import datetime
 from uuid import uuid4
 
+import pytest
+
+from ert.gui.experiments import experiment_panel
 from ert.storage.local_ensemble import LocalEnsemble
 from ert.storage.local_ensemble import _Index as _EnsembleIndex
 from ert.storage.local_experiment import ExperimentType, LocalExperiment
 from ert.storage.local_experiment import _Index as _ExperimentIndex
 from ert.storage.local_storage import LocalStorage
 from ert.storage.realization_storage_state import RealizationStorageState
+from tests.ert.unit_tests.gui.experiments.local_experiment_client import (
+    LocalExperimentClient,
+)
 
 REALIZATION_FINISHED_SUCCESSFULLY = {
     RealizationStorageState.PARAMETERS_LOADED,
@@ -81,3 +87,15 @@ class MockStorage(LocalStorage):
         )
         self._ensembles[mock_ensemble2.id] = mock_ensemble2
         self._experiments[mock_experiment.id] = mock_experiment
+
+
+@pytest.fixture(autouse=True)
+def _use_local_experiment_client(monkeypatch):
+    """Patch _build_experiment_client to run experiments in-process.
+
+    This lets integration tests that click the GUI run button work without
+    needing a live ErtServerController / HTTP server.
+    """
+    monkeypatch.setattr(
+        experiment_panel, "_build_experiment_client", LocalExperimentClient
+    )

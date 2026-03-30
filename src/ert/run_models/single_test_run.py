@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import Field
 
 from ert.run_models import EnsembleExperiment
@@ -10,6 +12,7 @@ SINGLE_TEST_RUN_GROUP = "Forward model evaluation"
 
 
 class SingleTestRunConfig(EnsembleExperimentConfig):
+    model_type: Literal["SingleTestRun"] = "SingleTestRun"
     active_realizations: list[bool] = Field(default_factory=lambda: [True])
     minimum_required_realizations: int = 1
 
@@ -21,6 +24,8 @@ class SingleTestRun(EnsembleExperiment, SingleTestRunConfig):
     1) Single test run always runs locally using the <b>local queue</b><br>
     2) Only a <b>single realization</b> (realization-0) is run<br>
     """
+
+    model_type: Literal["SingleTestRun"] = "SingleTestRun"
 
     @classmethod
     def name(cls) -> str:

@@ -19,7 +19,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, Protocol, cast
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 import numpy as np
 from pydantic import (
@@ -146,19 +146,10 @@ def captured_logs(
         root_logger.removeHandler(handler)
 
 
-class StartSimulationsThreadFn(Protocol):
-    def __call__(
-        self,
-        evaluator_server_config: EvaluatorServerConfig,
-        rerun_failed_realizations: bool = False,
-    ) -> None: ...
-
-
 @dataclass
 class RunModelAPI:
     experiment_name: str
     supports_rerunning_failed_realizations: bool
-    start_simulations_thread: StartSimulationsThreadFn
     cancel: Callable[[], None]
     has_failed_realizations: Callable[[], bool]
 
@@ -234,7 +225,6 @@ class RunModel(RunModelConfig, ABC):
     def api(self) -> RunModelAPI:
         return RunModelAPI(
             experiment_name=self.name(),
-            start_simulations_thread=self.start_simulations_thread,
             has_failed_realizations=self.has_failed_realizations,
             supports_rerunning_failed_realizations=self.supports_rerunning_failed_realizations,
             cancel=self.cancel,

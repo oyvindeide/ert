@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import functools
 import logging
+from typing import Literal
 
 from ert.analysis import enif_update
 from ert.run_models.ensemble_smoother import EnsembleSmoother
@@ -16,10 +17,13 @@ logger = logging.getLogger(__name__)
 
 class EnsembleInformationFilterConfig(
     InitialEnsembleRunModelConfig, UpdateRunModelConfig
-): ...
+):
+    model_type: Literal["EnsembleInformationFilter"] = "EnsembleInformationFilter"
 
 
 class EnsembleInformationFilter(EnsembleSmoother, EnsembleInformationFilterConfig):
+    model_type: Literal["EnsembleInformationFilter"] = "EnsembleInformationFilter"
+
     def update_ensemble_parameters(
         self, prior: Ensemble, posterior: Ensemble, weight: float
     ) -> None:

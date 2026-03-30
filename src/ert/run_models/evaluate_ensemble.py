@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal
 from uuid import UUID
 
 import numpy as np
@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class EvaluateEnsembleConfig(RunModelConfig):
+    model_type: Literal["EvaluateEnsemble"] = "EvaluateEnsemble"
     ensemble_id: str
     supports_rerunning_failed_realizations: ClassVar[bool] = True
 

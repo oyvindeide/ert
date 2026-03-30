@@ -125,10 +125,12 @@ def start_experiment(
     retries: int = 5,
 ) -> str:
     """Start the experiment on the server; returns the run_id."""
-    run_model_config = {
-        "model_type": "EverestRunModel",
-        "everest_config": config.model_dump(mode="json"),
-    }
+    # Build JSON via pydantic to avoid InvalidJSONError for NaN/Inf floats
+    body = (
+        '{"model_type":"EverestRunModel","everest_config":'
+        + config.model_dump_json()
+        + "}"
+    )
     for retry in range(retries):
         try:
             url, cert, auth = server_context
@@ -138,7 +140,8 @@ def start_experiment(
                 verify=cert,
                 auth=auth,
                 proxies=PROXY,  # type: ignore
-                json=run_model_config,
+                data=body,
+                headers={"Content-Type": "application/json"},
             )
             response.raise_for_status()
             return response.json()["run_id"]
@@ -253,8 +256,7 @@ def start_monitor(
 
     try:
         with connect(
-            url.replace("https://", "wss://")
-            + f"/experiment_server/events?run_id={run_id}",
+            url.replace("https://", "wss://") + f"/events?run_id={run_id}",
             ssl=ssl_context,
             open_timeout=30,
             additional_headers={"Authorization": f"Basic {credentials}"},

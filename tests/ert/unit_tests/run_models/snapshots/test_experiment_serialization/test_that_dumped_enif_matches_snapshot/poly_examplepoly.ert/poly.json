@@ -310,5 +310,6 @@
       "radius": null
     }
   ],
+  "model_type": "EnsembleInformationFilter",
   "experiment_type": "Ensemble Information Filter"
 }

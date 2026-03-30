@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import queue
+import ssl
 from collections import OrderedDict
 from pathlib import Path
 from queue import SimpleQueue
@@ -21,21 +23,21 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from _ert.threading import ErtThread
-from ert.config import QueueSystem
-from ert.ensemble_evaluator import EvaluatorServerConfig
 from ert.gui.detect_mode import is_dark_mode
 from ert.gui.ertnotifier import ErtNotifier
 from ert.gui.find_ert_info import find_ert_info
 from ert.gui.icon_utils import load_icon
 from ert.gui.summarypanel import SummaryPanel
-from ert.run_models import RunModel, StatusEvents, create_model
+from ert.run_models import build_run_model_config
+from ert.run_models.model_factory import _instantiate_run_model
+from ert.services import ErtServerController
 
 from .combobox_with_description import QComboBoxWithDescription
 from .ensemble_experiment_panel import EnsembleExperimentPanel
 from .ensemble_information_filter_panel import EnsembleInformationFilterPanel
 from .ensemble_smoother_panel import EnsembleSmootherPanel
 from .evaluate_ensemble_panel import EvaluateEnsemblePanel
+from .experiment_client import ExperimentClient
 from .experiment_config_panel import ExperimentConfigPanel
 from .manual_update_panel import ManualUpdatePanel
 from .multiple_data_assimilation_panel import MultipleDataAssimilationPanel
@@ -56,18 +58,22 @@ def create_md_table(kv: dict[str, str], output: str) -> str:
     return output
 
 
-def get_simulation_thread(
-    model: Any, rerun_failed_realizations: bool = False, use_ipc_protocol: bool = False
-) -> ErtThread:
-    evaluator_server_config = EvaluatorServerConfig(use_ipc_protocol=use_ipc_protocol)
-
-    def run() -> None:
-        model.api.start_simulations_thread(
-            evaluator_server_config=evaluator_server_config,
-            rerun_failed_realizations=rerun_failed_realizations,
-        )
-
-    return ErtThread(name="ert_gui_simulation_thread", target=run, daemon=True)
+def _build_experiment_client() -> ExperimentClient:
+    server = ErtServerController._instance
+    assert server is not None, "ErtServerController not started"
+    conn_info = server.fetch_connection_info()
+    url = server.fetch_url()
+    cert = conn_info["cert"]
+    username, password = server.fetch_auth()
+    ssl_context = ssl.create_default_context()
+    ssl_context.load_verify_locations(cafile=cert)
+    return ExperimentClient(
+        url=url,
+        cert_file=cert,
+        username=username,
+        password=password,
+        ssl_context=ssl_context,
+    )
 
 
 class ExperimentPanel(QWidget):
@@ -166,9 +172,8 @@ class ExperimentPanel(QWidget):
 
         layout.addWidget(self._experiment_stack)
 
-        self._experiment_widgets: dict[type[RunModel], ExperimentConfigPanel] = (
-            OrderedDict()
-        )
+        self._experiment_widgets: dict[type[Any], ExperimentConfigPanel] = OrderedDict()
+        self._client: ExperimentClient | None = None
         analysis_config = config.analysis_config
         self.addExperimentConfigPanel(
             SingleTestRunPanel(
@@ -295,17 +300,14 @@ class ExperimentPanel(QWidget):
         return simulation_widget.get_experiment_arguments()
 
     def run_experiment(self) -> None:
+        if self._client is None:
+            self._client = _build_experiment_client()
         args = self.get_experiment_arguments()
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-        event_queue: SimpleQueue[StatusEvents] = SimpleQueue()
         try:
-            model = create_model(
-                self.config,
-                args,
-                event_queue,
-            )
-
+            run_model_config = build_run_model_config(self.config, args)
         except ValueError as e:
+            QApplication.restoreOverrideCursor()
             QMessageBox.warning(
                 self,
                 "ERROR: Failed to create experiment",
@@ -314,15 +316,18 @@ class ExperimentPanel(QWidget):
             )
             return
 
-        self._model = model
+        self._run_model_config = run_model_config
 
         QApplication.restoreOverrideCursor()
-        if model.check_if_runpath_exists():
+        try:
+            tmp_model = _instantiate_run_model(run_model_config, SimpleQueue())
+        except Exception:
+            return
+
+        if tmp_model.check_if_runpath_exists():
             msg_box = QMessageBox(self)
             msg_box.setObjectName("RUN_PATH_WARNING_BOX")
-
             msg_box.setIcon(QMessageBox.Icon.Warning)
-
             msg_box.setText("Run experiments")
             msg_box.setInformativeText(
                 "ERT is running in an existing runpath.\n\n"
@@ -331,8 +336,8 @@ class ExperimentPanel(QWidget):
                 "might be overwritten.\n"
                 "- Previously generated files might "
                 "be used if not configured correctly.\n"
-                f"- {model.get_number_of_existing_runpaths()} out "
-                f"of {model.get_number_of_active_realizations()} realizations "
+                f"- {tmp_model.get_number_of_existing_runpaths()} out "
+                f"of {tmp_model.get_number_of_active_realizations()} realizations "
                 "are running in existing runpaths.\n"
                 "Are you sure you want to continue?"
             )
@@ -345,18 +350,17 @@ class ExperimentPanel(QWidget):
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
             )
             msg_box.setDefaultButton(QMessageBox.StandardButton.No)
-
             msg_box.setWindowModality(Qt.WindowModality.ApplicationModal)
 
             msg_box_res = msg_box.exec()
             if msg_box_res == QMessageBox.StandardButton.No:
-                self._model._storage.close()
+                tmp_model._storage.close()
                 return
 
             if delete_runpath_checkbox.checkState() == Qt.CheckState.Checked:
                 QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
                 try:
-                    model.rm_run_path()
+                    tmp_model.rm_run_path()
                 except OSError as e:
                     QApplication.restoreOverrideCursor()
                     msg_box = QMessageBox(self)
@@ -373,17 +377,21 @@ class ExperimentPanel(QWidget):
                     msg_box.setWindowModality(Qt.WindowModality.ApplicationModal)
                     msg_box_res = msg_box.exec()
                     if msg_box_res == QMessageBox.StandardButton.No:
+                        tmp_model._storage.close()
                         return
+                tmp_model._storage.close()
                 QApplication.restoreOverrideCursor()
 
         self.configuration_summary.log_summary(
-            args.mode, model.get_number_of_active_realizations()
+            args.mode, sum(run_model_config.active_realizations)
         )
+
+        run_model_api = self._client.create_run_model_api(run_model_config)
 
         self._dialog = RunDialog(
             f"Experiment - {self._config_file} {find_ert_info()}",
-            model.api,
-            event_queue,
+            run_model_api,
+            queue.SimpleQueue(),
             self._notifier,
             self.parent(),  # type: ignore
             output_path=self.config.analysis_config.log_path,
@@ -391,38 +399,50 @@ class ExperimentPanel(QWidget):
             storage_path=self._notifier.storage.path,
         )
         self._dialog.queue_system.setText(
-            f"Queue system:\n{model.queue_config.queue_system.formatted_name}"
+            "Queue system:\n"
+            f"{run_model_config.queue_config.queue_system.formatted_name}"
         )
         self.experiment_started.emit(self._dialog)
         self._experiment_done = False
         self.run_button.setEnabled(self._experiment_done)
 
-        def start_simulation_thread(rerun_failed_realizations: bool = False) -> None:
-            simulation_thread = get_simulation_thread(
-                self._model,
-                rerun_failed_realizations,
-                use_ipc_protocol=self.config.queue_config.queue_system
-                == QueueSystem.LOCAL,
+        def start_monitoring(rerun_failed_realizations: bool = False) -> None:
+            try:
+                run_id = self._client.start_experiment(
+                    self._run_model_config,
+                    rerun_failed_realizations=rerun_failed_realizations,
+                )
+            except Exception as e:
+                QMessageBox.warning(
+                    self,
+                    "ERROR: Failed to start experiment",
+                    str(e),
+                    QMessageBox.StandardButton.Ok,
+                )
+                return
+            event_queue, monitor_thread = (
+                self._client.setup_event_queue_from_ws_endpoint(run_id)
             )
+            self._dialog._event_queue = event_queue
             self._dialog.setup_event_monitoring(rerun_failed_realizations)
-            simulation_thread.start()
+            monitor_thread.start()
             self._notifier.set_is_experiment_running(True)
 
         def rerun_failed_realizations() -> None:
-            start_simulation_thread(rerun_failed_realizations=True)
+            start_monitoring(rerun_failed_realizations=True)
 
         self._dialog.rerun_failed_realizations_experiment.connect(
             rerun_failed_realizations
         )
-        start_simulation_thread(rerun_failed_realizations=False)
+        start_monitoring(rerun_failed_realizations=False)
 
-        def simulation_done_handler() -> None:
+        def experiment_done_handler() -> None:
             self._experiment_done = True
             self.run_button.setEnabled(self._experiment_done)
             self._notifier.emitErtChange()
             self.toggleExperimentType()
 
-        self._dialog.experiment_done.connect(simulation_done_handler)
+        self._dialog.experiment_done.connect(experiment_done_handler)
 
     def toggleExperimentType(self) -> None:
         current_model = self.get_current_experiment_type()

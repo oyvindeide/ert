@@ -185,6 +185,7 @@
     },
     "auto_scale_observations": []
   },
+  "model_type": "ManualUpdate",
   "ensemble_id": "00000000-0000-0000-0000-000000000000",
   "ert_templates": [],
   "experiment_type": "Manual Update"

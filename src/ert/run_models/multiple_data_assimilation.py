@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal
 from uuid import UUID
 
 from pydantic import PrivateAttr
@@ -31,6 +31,7 @@ MULTIPLE_DATA_ASSIMILATION_GROUP = "Parameter update"
 class MultipleDataAssimilationConfig(
     InitialEnsembleRunModelConfig, UpdateRunModelConfig
 ):
+    model_type: Literal["MultipleDataAssimilation"] = "MultipleDataAssimilation"
     default_weights: ClassVar[str] = "4, 2, 1"
     restart_run: bool
     prior_ensemble_id: str | None

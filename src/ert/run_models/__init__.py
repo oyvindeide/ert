@@ -12,7 +12,7 @@ from .event import (
     RunModelUpdateBeginEvent,
     RunModelUpdateEndEvent,
 )
-from .model_factory import create_model
+from .model_factory import RunModelConfigUnion, build_run_model_config, create_model
 from .multiple_data_assimilation import (
     MultipleDataAssimilation,
     MultipleDataAssimilationConfig,
@@ -38,6 +38,7 @@ __all__ = [
     "MultipleDataAssimilationConfig",
     "RunModel",
     "RunModelAPI",
+    "RunModelConfigUnion",
     "RunModelEvent",
     "RunModelStatusEvent",
     "RunModelTimeEvent",
@@ -46,5 +47,6 @@ __all__ = [
     "SingleTestRun",
     "SingleTestRunConfig",
     "StatusEvents",
+    "build_run_model_config",
     "create_model",
 ]
