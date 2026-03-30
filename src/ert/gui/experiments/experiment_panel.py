@@ -4,7 +4,6 @@ import queue
 import ssl
 from collections import OrderedDict
 from pathlib import Path
-from queue import SimpleQueue
 from typing import TYPE_CHECKING, Any
 
 from PyQt6.QtCore import QSize, Qt
@@ -29,7 +28,6 @@ from ert.gui.find_ert_info import find_ert_info
 from ert.gui.icon_utils import load_icon
 from ert.gui.summarypanel import SummaryPanel
 from ert.run_models import build_run_model_config
-from ert.run_models.model_factory import _instantiate_run_model
 from ert.services import ErtServerController
 
 from .combobox_with_description import QComboBoxWithDescription
@@ -319,12 +317,10 @@ class ExperimentPanel(QWidget):
         self._run_model_config = run_model_config
 
         QApplication.restoreOverrideCursor()
-        try:
-            tmp_model = _instantiate_run_model(run_model_config, SimpleQueue())
-        except Exception:
-            return
-
-        if tmp_model.check_if_runpath_exists():
+        runpath_result = self._client.check_runpath(run_model_config)
+        existing_count = runpath_result["existing_count"]
+        active_count = runpath_result["active_count"]
+        if existing_count != 0:
             msg_box = QMessageBox(self)
             msg_box.setObjectName("RUN_PATH_WARNING_BOX")
             msg_box.setIcon(QMessageBox.Icon.Warning)
@@ -336,8 +332,8 @@ class ExperimentPanel(QWidget):
                 "might be overwritten.\n"
                 "- Previously generated files might "
                 "be used if not configured correctly.\n"
-                f"- {tmp_model.get_number_of_existing_runpaths()} out "
-                f"of {tmp_model.get_number_of_active_realizations()} realizations "
+                f"- {existing_count} out "
+                f"of {active_count} realizations "
                 "are running in existing runpaths.\n"
                 "Are you sure you want to continue?"
             )
@@ -354,13 +350,12 @@ class ExperimentPanel(QWidget):
 
             msg_box_res = msg_box.exec()
             if msg_box_res == QMessageBox.StandardButton.No:
-                tmp_model._storage.close()
                 return
 
             if delete_runpath_checkbox.checkState() == Qt.CheckState.Checked:
                 QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
                 try:
-                    tmp_model.rm_run_path()
+                    self._client.delete_runpath(run_model_config)
                 except OSError as e:
                     QApplication.restoreOverrideCursor()
                     msg_box = QMessageBox(self)
@@ -377,9 +372,7 @@ class ExperimentPanel(QWidget):
                     msg_box.setWindowModality(Qt.WindowModality.ApplicationModal)
                     msg_box_res = msg_box.exec()
                     if msg_box_res == QMessageBox.StandardButton.No:
-                        tmp_model._storage.close()
                         return
-                tmp_model._storage.close()
                 QApplication.restoreOverrideCursor()
 
         self.configuration_summary.log_summary(

@@ -22,6 +22,7 @@ from .run_model import (
     RunModel,
     RunModelAPI,
     StatusEvents,
+    _compute_run_paths,
 )
 from .single_test_run import SingleTestRun, SingleTestRunConfig
 
@@ -47,6 +48,7 @@ __all__ = [
     "SingleTestRun",
     "SingleTestRunConfig",
     "StatusEvents",
+    "_compute_run_paths",
     "build_run_model_config",
     "create_model",
 ]

@@ -1,12 +1,15 @@
 import asyncio
+import concurrent.futures
 import dataclasses
 import logging
 import os
 import queue
+import shutil
 import time
 import traceback
 import uuid
 from base64 import b64decode
+from pathlib import Path
 from queue import SimpleQueue
 from typing import Annotated
 
@@ -29,7 +32,12 @@ from ert.config import QueueSystem
 from ert.ensemble_evaluator import EndEvent, EvaluatorServerConfig
 from ert.ensemble_evaluator.event import FullSnapshotEvent, SnapshotUpdateEvent
 from ert.ensemble_evaluator.snapshot import EnsembleSnapshot
-from ert.run_models import RunModel, RunModelConfigUnion, StatusEvents
+from ert.run_models import (
+    RunModel,
+    RunModelConfigUnion,
+    StatusEvents,
+    _compute_run_paths,
+)
 from ert.run_models.everest_run_model import (
     EverestExitCode,
     EverestRunModel,
@@ -48,6 +56,11 @@ from everest.strings import (
 )
 
 router = APIRouter(prefix="/experiment_server", tags=["experiment_server"])
+
+
+def _delete_runpath(run_path: str) -> None:
+    if Path(run_path).exists():
+        shutil.rmtree(run_path)
 
 
 class UserCancelled(Exception):
@@ -275,6 +288,37 @@ async def start_time(
         return Response("No experiment started", status_code=404)
 
     return Response(str(run.start_time_unix), status_code=200)
+
+
+@router.post("/check_runpath")
+def check_runpath(
+    request: Request,
+    credentials: Annotated[HTTPBasicCredentials, Depends(security)],
+    config: RunModelConfigUnion,
+) -> JSONResponse:
+    _log(request)
+    _check_user(credentials)
+    paths = _compute_run_paths(config)
+    realization_dirs = {Path(p).parent for p in paths}
+    existing_count = sum(1 for d in realization_dirs if d.exists())
+    active_count = sum(config.active_realizations)
+    return JSONResponse(
+        {"existing_count": existing_count, "active_count": active_count}
+    )
+
+
+@router.post("/delete_runpath")
+def delete_runpath_endpoint(
+    request: Request,
+    credentials: Annotated[HTTPBasicCredentials, Depends(security)],
+    config: RunModelConfigUnion,
+) -> Response:
+    _log(request)
+    _check_user(credentials)
+    paths = _compute_run_paths(config)
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        executor.map(_delete_runpath, paths)
+    return Response("Runpath deleted", status_code=200)
 
 
 @router.websocket("/events")

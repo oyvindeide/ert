@@ -6,8 +6,10 @@ threads instead of POSTing to a server and subscribing via WebSocket.
 
 from __future__ import annotations
 
+import shutil
 import threading
 import uuid
+from pathlib import Path
 from queue import SimpleQueue
 
 from _ert.threading import ErtThread
@@ -16,7 +18,7 @@ from ert.ensemble_evaluator import EvaluatorServerConfig
 from ert.run_models import RunModelAPI, RunModelConfigUnion
 from ert.run_models.event import StatusEvents
 from ert.run_models.model_factory import _instantiate_run_model
-from ert.run_models.run_model import RunModel
+from ert.run_models.run_model import RunModel, _compute_run_paths
 
 _SUPPORTS_RERUNNING: set[str] = {"EnsembleExperiment", "EvaluateEnsemble"}
 
@@ -99,6 +101,20 @@ class LocalExperimentClient:
             cancel=self.stop,
             has_failed_realizations=lambda: False,
         )
+
+    def check_runpath(self, config: RunModelConfigUnion) -> dict[str, int]:
+        paths = _compute_run_paths(config)
+        realization_dirs = {Path(p).parent for p in paths}
+        existing_count = sum(1 for d in realization_dirs if d.exists())
+        return {
+            "existing_count": existing_count,
+            "active_count": sum(config.active_realizations),
+        }
+
+    def delete_runpath(self, config: RunModelConfigUnion) -> None:
+        for path in _compute_run_paths(config):
+            if Path(path).exists():
+                shutil.rmtree(path)
 
     def stop(self) -> None:
         if self._run_model is not None:

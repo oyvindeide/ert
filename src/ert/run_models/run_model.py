@@ -119,6 +119,39 @@ def delete_runpath(run_path: str) -> None:
         shutil.rmtree(run_path)
 
 
+def _compute_run_paths(config: RunModelConfig) -> list[str]:
+    """Compute all run paths for a config without instantiating a full RunModel.
+
+    Uses only the config fields — no storage or model instantiation required.
+    """
+    from ert.run_models.multiple_data_assimilation import (  # noqa: PLC0415
+        MultipleDataAssimilation,
+        MultipleDataAssimilationConfig,
+    )
+
+    run_paths_obj = Runpaths(
+        jobname_format=config.runpath_config.jobname_format_string,
+        runpath_format=config.runpath_config.runpath_format_string,
+        filename=str(config.runpath_file),
+        substitutions=config.substitutions,
+        eclbase=config.runpath_config.summary_file_base_name,
+    )
+    if isinstance(config, MultipleDataAssimilationConfig):
+        parsed_weights = MultipleDataAssimilation.parse_weights(config.weights)
+        total_iterations = len(parsed_weights) + 1
+        total_iterations -= config.start_iteration
+    else:
+        total_iterations = 1
+
+    active_realizations = np.where(config.active_realizations)[0]
+    paths = []
+    for iteration in range(
+        config.start_iteration, total_iterations + config.start_iteration
+    ):
+        paths.extend(run_paths_obj.get_paths(active_realizations, iteration))
+    return paths
+
+
 class _LogAggregration(logging.Handler):
     def __init__(self, messages: MutableSequence[str]) -> None:
         self.messages = messages

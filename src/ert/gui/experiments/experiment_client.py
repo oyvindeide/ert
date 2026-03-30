@@ -82,6 +82,23 @@ class ExperimentClient:
         response.raise_for_status()
         return response.json()["run_id"]
 
+    def check_runpath(self, config: RunModelConfigUnion) -> dict[str, int]:
+        """Return existing_count and active_count for the config's runpaths."""
+        response = self._http_post(
+            "check_runpath",
+            json=config.model_dump(mode="json"),
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def delete_runpath(self, config: RunModelConfigUnion) -> None:
+        """Delete all runpaths for the given config."""
+        response = self._http_post(
+            "delete_runpath",
+            json=config.model_dump(mode="json"),
+        )
+        response.raise_for_status()
+
     def setup_event_queue_from_ws_endpoint(
         self,
         run_id: str | None = None,
