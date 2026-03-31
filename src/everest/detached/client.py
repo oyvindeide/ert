@@ -97,11 +97,38 @@ def stop_server(
     return False
 
 
+def get_current_run_id(
+    server_context: tuple[str, str, tuple[str, str]],
+    retries: int = 5,
+) -> str:
+    """Fetch the run_id of the currently running experiment."""
+    for retry in range(retries):
+        try:
+            url, cert, auth = server_context
+            response = requests.get(
+                f"{url}/experiment_server/current_run_id",
+                verify=cert,
+                auth=auth,
+                proxies=PROXY,  # type: ignore
+            )
+            response.raise_for_status()
+            return response.json()["run_id"]
+        except Exception:
+            logger.debug(traceback.format_exc())
+            time.sleep(retry)
+    raise RuntimeError("Failed to get current run_id")
+
+
 def start_experiment(
     server_context: tuple[str, str, tuple[str, str]],
     config: EverestConfig,
     retries: int = 5,
-) -> None:
+) -> str:
+    """Start the experiment on the server; returns the run_id."""
+    run_model_config = {
+        "model_type": "EverestRunModel",
+        "everest_config": config.model_dump(mode="json"),
+    }
     for retry in range(retries):
         try:
             url, cert, auth = server_context
@@ -111,14 +138,13 @@ def start_experiment(
                 verify=cert,
                 auth=auth,
                 proxies=PROXY,  # type: ignore
-                json=config.to_dict(),
+                json=run_model_config,
             )
             response.raise_for_status()
+            return response.json()["run_id"]
         except Exception:
             logger.debug(traceback.format_exc())
             time.sleep(retry)
-        else:
-            return
     raise RuntimeError("Failed to start experiment")
 
 
@@ -211,6 +237,7 @@ def get_opt_status_from_batch_result_event(
 def start_monitor(
     server_context: tuple[str, str, tuple[str, str]],
     callback: Callable[..., None],
+    run_id: str,
     polling_interval: float = 0.1,
 ) -> None:
     """
@@ -226,7 +253,8 @@ def start_monitor(
 
     try:
         with connect(
-            url.replace("https://", "wss://") + "/events",
+            url.replace("https://", "wss://")
+            + f"/experiment_server/events?run_id={run_id}",
             ssl=ssl_context,
             open_timeout=30,
             additional_headers={"Authorization": f"Basic {credentials}"},

@@ -65,8 +65,16 @@ class ExperimentRunnerState:
     start_time_unix: int | None = None
 
 
-shared_data = ExperimentRunnerState()
+_runs: dict[str, ExperimentRunnerState] = {}
+_state: dict[str, str | None] = {"current_run_id": None}
 security = HTTPBasic()
+
+
+def _current_run() -> ExperimentRunnerState:
+    run_id = _state["current_run_id"]
+    if run_id is None or run_id not in _runs:
+        return ExperimentRunnerState()
+    return _runs[run_id]
 
 
 def _failed_realizations_messages(
@@ -168,7 +176,19 @@ def experiment_status(
 ) -> ExperimentStatus:
     _log(request)
     _check_user(credentials)
-    return shared_data.status
+    return _current_run().status
+
+
+@router.get("/current_run_id")
+def current_run_id(
+    request: Request, credentials: Annotated[HTTPBasicCredentials, Depends(security)]
+) -> JSONResponse:
+    _log(request)
+    _check_user(credentials)
+    run_id = _state["current_run_id"]
+    if run_id is None:
+        return JSONResponse({"error": "No experiment started"}, status_code=404)
+    return JSONResponse({"run_id": run_id})
 
 
 @router.post("/" + EverEndpoints.stop)
@@ -177,7 +197,8 @@ def stop(
 ) -> Response:
     _log(request)
     _check_user(credentials)
-    shared_data.status = ExperimentStatus(
+    run = _current_run()
+    run.status = ExperimentStatus(
         message="Server stopped by user", status=ExperimentState.stopped
     )
     return Response("Raise STOP flag succeeded. EVEREST initiates shutdown..", 200)
@@ -188,38 +209,38 @@ async def start_experiment(
     request: Request,
     background_tasks: BackgroundTasks,
     credentials: Annotated[HTTPBasicCredentials, Depends(security)],
-) -> Response:
+) -> JSONResponse:
     _log(request)
     _check_user(credentials)
-    if shared_data.status.status == ExperimentState.pending:
-        request_data = await request.json()
-        # The output of warnings is the task of the user interface, not
-        # of everserver. Therefore we suppress them here:
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=ConfigWarning)
-            config = EverestConfig.with_plugins(request_data)
-        runner = ExperimentRunner(config)
-        try:
-            background_tasks.add_task(runner.run)
-            # Assume only one unique running experiment per everserver instance
-            # Ideally, we should return the experiment ID in the response here
-            shared_data.config_path = config.config_path
-
-            shared_data.run_path = config.simulation_dir
-            shared_data.storage_path = config.output_dir
-
-            # Assume client and server is always in the same timezone
-            # so disregard timestamps
-            shared_data.start_time_unix = int(time.time())
-            return Response("EVEREST experiment started")
-        except Exception as e:
-            shared_data.status = ExperimentStatus(
-                status=ExperimentState.failed,
-                message=f"Could not start experiment: {e!s}",
-            )
-            logging.getLogger(EXPERIMENT_SERVER).exception(e)
-            return Response(f"Could not start experiment: {e!s}", status_code=501)
-    return Response("EVEREST experiment is running")
+    run_id = str(uuid.uuid4())
+    run_state = ExperimentRunnerState()
+    _runs[run_id] = run_state
+    _state["current_run_id"] = run_id
+    request_data = await request.json()
+    # The output of warnings is the task of the user interface, not
+    # of everserver. Therefore we suppress them here:
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=ConfigWarning)
+        config = EverestConfig.with_plugins(request_data)
+    runner = ExperimentRunner(config, run_id)
+    try:
+        background_tasks.add_task(runner.run)
+        run_state.config_path = config.config_path
+        run_state.run_path = config.simulation_dir
+        run_state.storage_path = config.output_dir
+        # Assume client and server is always in the same timezone
+        # so disregard timestamps
+        run_state.start_time_unix = int(time.time())
+        return JSONResponse({"run_id": run_id})
+    except Exception as e:
+        run_state.status = ExperimentStatus(
+            status=ExperimentState.failed,
+            message=f"Could not start experiment: {e!s}",
+        )
+        logging.getLogger(EXPERIMENT_SERVER).exception(e)
+        return JSONResponse(
+            {"error": f"Could not start experiment: {e!s}"}, status_code=501
+        )
 
 
 @router.get("/" + EverEndpoints.config_path)
@@ -228,14 +249,15 @@ async def config_path(
 ) -> JSONResponse:
     _log(request)
     _check_user(credentials)
-    if shared_data.status.status == ExperimentState.pending:
+    run = _current_run()
+    if run.status.status == ExperimentState.pending:
         return JSONResponse("No experiment started", status_code=404)
 
     return JSONResponse(
         {
-            "config_path": str(shared_data.config_path),
-            "run_path": str(shared_data.run_path),
-            "storage_path": str(shared_data.storage_path),
+            "config_path": str(run.config_path),
+            "run_path": str(run.run_path),
+            "storage_path": str(run.storage_path),
         },
         status_code=200,
     )
@@ -247,20 +269,24 @@ async def start_time(
 ) -> Response:
     _log(request)
     _check_user(credentials)
-    if shared_data.status.status == ExperimentState.pending:
+    run = _current_run()
+    if run.status.status == ExperimentState.pending:
         return Response("No experiment started", status_code=404)
 
-    return Response(str(shared_data.start_time_unix), status_code=200)
+    return Response(str(run.start_time_unix), status_code=200)
 
 
 @router.websocket("/events")
-async def websocket_endpoint(websocket: WebSocket) -> None:
+async def websocket_endpoint(websocket: WebSocket, run_id: str) -> None:
     await websocket.accept()
     _check_authentication(websocket.headers.get("Authorization"))
+    if run_id not in _runs:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
     subscriber_id = str(uuid.uuid4())
     try:
         while True:
-            event = await _get_event(subscriber_id=subscriber_id)
+            event = await _get_event(subscriber_id=subscriber_id, run_id=run_id)
             await websocket.send_json(jsonable_encoder(event))
             if isinstance(event, EndEvent):
                 break
@@ -272,23 +298,24 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
         )
         # Give some time for subscribers to get events
         await asyncio.sleep(5)
-        shared_data.subscribers[subscriber_id].done()
+        _runs[run_id].subscribers[subscriber_id].done()
 
 
-async def _get_event(subscriber_id: str) -> StatusEvents:
+async def _get_event(subscriber_id: str, run_id: str) -> StatusEvents:
     """
     The function waits until there is an event available for the subscriber
     and returns the event. If the subscriber is up to date it will
     wait until we wake up the subscriber using notify
     """
-    if subscriber_id not in shared_data.subscribers:
-        shared_data.subscribers[subscriber_id] = Subscriber()
-    subscriber = shared_data.subscribers[subscriber_id]
+    run = _runs[run_id]
+    if subscriber_id not in run.subscribers:
+        run.subscribers[subscriber_id] = Subscriber()
+    subscriber = run.subscribers[subscriber_id]
 
-    while subscriber.index >= len(shared_data.events):
+    while subscriber.index >= len(run.events):
         await subscriber.wait_for_event()
 
-    event = shared_data.events[subscriber.index]
+    event = run.events[subscriber.index]
     subscriber.index += 1
     return event
 
@@ -297,12 +324,14 @@ class ExperimentRunner:
     def __init__(
         self,
         everest_config: EverestConfig,
+        run_id: str,
     ) -> None:
         super().__init__()
-
         self._everest_config = everest_config
+        self._run_id = run_id
 
     async def run(self) -> None:
+        run = _runs[self._run_id]
         status_queue: SimpleQueue[StatusEvents] = SimpleQueue()
         run_model: EverestRunModel | None = None
         try:
@@ -315,7 +344,7 @@ class ExperimentRunner:
                     status_queue=status_queue,
                     runtime_plugins=site_plugins,
                 )
-            shared_data.status = ExperimentStatus(
+            run.status = ExperimentStatus(
                 message="Experiment started", status=ExperimentState.running
             )
             loop = asyncio.get_running_loop()
@@ -328,7 +357,7 @@ class ExperimentRunner:
                 ),
             )
             while True:
-                if shared_data.status.status == ExperimentState.stopped:
+                if run.status.status == ExperimentState.stopped:
                     run_model.cancel()
                     raise UserCancelled("Optimization aborted")
                 try:
@@ -337,22 +366,22 @@ class ExperimentRunner:
                     await asyncio.sleep(0.01)
                     continue
 
-                shared_data.events.append(item)
-                for sub in shared_data.subscribers.values():
+                run.events.append(item)
+                for sub in run.subscribers.values():
                     sub.notify()
 
                 if isinstance(item, EndEvent):
                     # Wait for subscribers to receive final events
-                    for sub in list(shared_data.subscribers.values()):
+                    for sub in list(run.subscribers.values()):
                         await sub.is_done()
                     break
             await simulation_future
             assert run_model.exit_code is not None
             exp_status, msg = _get_optimization_status(
                 run_model.exit_code,
-                shared_data.events,
+                run.events,
             )
-            shared_data.status = ExperimentStatus(
+            run.status = ExperimentStatus(
                 message=msg,
                 status=exp_status,
             )
@@ -360,13 +389,13 @@ class ExperimentRunner:
             logging.getLogger(EXPERIMENT_SERVER).info(f"User cancelled: {e}")
         except Exception as e:
             logging.getLogger(EXPERIMENT_SERVER).exception(e)
-            shared_data.status = ExperimentStatus(
+            run.status = ExperimentStatus(
                 message=f"Exception: {e}\n{traceback.format_exc()}",
                 status=ExperimentState.failed,
             )
         finally:
             if run_model and run_model._experiment:
-                run_model._experiment.status = shared_data.status
+                run_model._experiment.status = run.status
 
             logging.getLogger(EXPERIMENT_SERVER).info(
                 f"ExperimentRunner done. Items left in queue: {status_queue.qsize()}"
