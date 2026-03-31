@@ -97,28 +97,6 @@ def stop_server(
     return False
 
 
-def get_current_run_id(
-    server_context: tuple[str, str, tuple[str, str]],
-    retries: int = 5,
-) -> str:
-    """Fetch the run_id of the currently running experiment."""
-    for retry in range(retries):
-        try:
-            url, cert, auth = server_context
-            response = requests.get(
-                f"{url}/experiment_server/current_run_id",
-                verify=cert,
-                auth=auth,
-                proxies=PROXY,  # type: ignore
-            )
-            response.raise_for_status()
-            return response.json()["run_id"]
-        except Exception:
-            logger.debug(traceback.format_exc())
-            time.sleep(retry)
-    raise RuntimeError("Failed to get current run_id")
-
-
 def start_experiment(
     server_context: tuple[str, str, tuple[str, str]],
     config: EverestConfig,

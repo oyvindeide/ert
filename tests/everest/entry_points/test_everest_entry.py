@@ -29,7 +29,7 @@ def raise_system_error(*args, **kwargs):
     "everest.bin.everest_script.create_ertserver_client",
     side_effect=[TimeoutError(), MagicMock()],
 )
-@patch("everest.bin.everest_script.start_experiment")
+@patch("everest.bin.everest_script.start_experiment", return_value="test-run-id")
 def test_everest_entry_debug(
     start_experiment_mock,
     everest_script_client_mock,
@@ -78,7 +78,7 @@ def test_everest_entry_debug(
     "everest.bin.everest_script.create_ertserver_client",
     side_effect=[TimeoutError(), MagicMock()],
 )
-@patch("everest.bin.everest_script.start_experiment")
+@patch("everest.bin.everest_script.start_experiment", return_value="test-run-id")
 def test_everest_entry(
     start_experiment_mock,
     everest_script_client_mock,
@@ -105,7 +105,7 @@ def test_everest_entry(
 @patch("everest.bin.everest_script.run_detached_monitor")
 @patch("everest.bin.everest_script.wait_for_server")
 @patch("everest.bin.everest_script.start_server")
-@patch("everest.bin.everest_script.start_experiment")
+@patch("everest.bin.everest_script.start_experiment", return_value="test-run-id")
 @patch("everest.config.ServerConfig.get_server_context_from_conn_info")
 @patch(
     "everest.bin.everest_script.create_ertserver_client",
@@ -242,16 +242,19 @@ def test_everest_entry_detached_running(
 
 @patch("everest.bin.monitor_script.run_detached_monitor")
 @patch("everest.config.ServerConfig.get_server_context_from_conn_info")
-@patch("everest.bin.monitor_script.get_current_run_id", return_value="test-run-id")
+@patch("everest.config.ServerConfig.get_session_dir")
 @patch("everest.bin.monitor_script.create_ertserver_client")
 def test_everest_entry_detached_running_monitor(
     monitor_script_client_mock,
-    get_current_run_id_mock,
+    get_session_dir_mock,
     get_server_context_from_conn_info_mock,
     start_monitor_mock,
     change_to_tmpdir,
+    tmp_path,
 ):
     """Test everest detached, optimization is running, monitoring"""
+    (tmp_path / "run_id").write_text("test-run-id", encoding="utf-8")
+    get_session_dir_mock.return_value = str(tmp_path)
 
     Path("config.yml").touch()
     config = everest_config_with_defaults(config_path="./config.yml")
@@ -263,7 +266,6 @@ def test_everest_entry_detached_running_monitor(
     start_monitor_mock.assert_called_once()
     monitor_script_client_mock.assert_called_once()
     get_server_context_from_conn_info_mock.assert_called_once()
-    get_current_run_id_mock.assert_called_once()
 
 
 @patch("everest.bin.monitor_script.run_detached_monitor")
@@ -304,7 +306,7 @@ def mock_ssl(monkeypatch):
 )
 @patch("everest.bin.everest_script.wait_for_server")
 @patch("everest.bin.everest_script.start_server")
-@patch("everest.bin.everest_script.start_experiment")
+@patch("everest.bin.everest_script.start_experiment", return_value="test-run-id")
 @patch("everest.config.ServerConfig.get_server_context_from_conn_info")
 @patch(
     "everest.bin.everest_script.create_ertserver_client",
@@ -332,15 +334,19 @@ def test_exception_raised_when_server_run_fails(
     side_effect=raise_system_error,
 )
 @patch("everest.config.ServerConfig.get_server_context_from_conn_info")
-@patch("everest.bin.monitor_script.get_current_run_id", return_value="test-run-id")
+@patch("everest.config.ServerConfig.get_session_dir")
 @patch("everest.bin.monitor_script.create_ertserver_client")
 def test_exception_raised_when_server_run_fails_monitor(
     monitor_script_client_mock,
-    get_current_run_id_mock,
+    get_session_dir_mock,
     get_server_context_from_conn_info_mock,
     start_monitor_mock,
     change_to_tmpdir,
+    tmp_path,
 ):
+    (tmp_path / "run_id").write_text("test-run-id", encoding="utf-8")
+    get_session_dir_mock.return_value = str(tmp_path)
+
     Path("config.yml").touch()
     config = everest_config_with_defaults(config_path="./config.yml")
     config.write_to_file("config.yml")
@@ -418,7 +424,9 @@ def test_that_run_everest_prints_where_it_runs(
         ),
         patch("everest.bin.everest_script.start_server"),
         patch("everest.bin.everest_script.wait_for_server"),
-        patch("everest.bin.everest_script.start_experiment"),
+        patch(
+            "everest.bin.everest_script.start_experiment", return_value="test-run-id"
+        ),
     ):
         everest_entry(["config.yml", "--skip-prompt"])
 

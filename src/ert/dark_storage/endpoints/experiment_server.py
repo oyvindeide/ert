@@ -90,15 +90,13 @@ class ExperimentRunnerState:
 
 
 _runs: dict[str, ExperimentRunnerState] = {}
-_state: dict[str, str | None] = {"current_run_id": None}
 security = HTTPBasic()
 
 
 def _current_run() -> ExperimentRunnerState:
-    run_id = _state["current_run_id"]
-    if run_id is None or run_id not in _runs:
+    if not _runs:
         return ExperimentRunnerState()
-    return _runs[run_id]
+    return next(reversed(_runs.values()))
 
 
 def _failed_realizations_messages(
@@ -230,7 +228,6 @@ async def start_experiment(
     run_id = str(uuid.uuid4())
     run_state = ExperimentRunnerState()
     _runs[run_id] = run_state
-    _state["current_run_id"] = run_id
     runner = ExperimentRunner(config, run_id)
     try:
         background_tasks.add_task(runner.run)

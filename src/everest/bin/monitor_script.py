@@ -10,7 +10,6 @@ from textwrap import dedent
 from ert.services import create_ertserver_client
 from ert.storage import ErtStorageException, ExperimentState
 from everest.config import EverestConfig, ServerConfig
-from everest.detached.client import get_current_run_id
 from everest.everest_storage import EverestStorage
 
 from .utils import (
@@ -89,7 +88,9 @@ def monitor_everest(options: argparse.Namespace) -> None:
             server_context = ServerConfig.get_server_context_from_conn_info(
                 client.conn_info
             )
-            run_id = get_current_run_id(server_context)
+            run_id = Path(
+                ServerConfig.get_session_dir(config.output_dir), "run_id"
+            ).read_text(encoding="utf-8")
             run_detached_monitor(server_context=server_context, run_id=run_id)
 
             try:

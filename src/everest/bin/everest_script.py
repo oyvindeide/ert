@@ -250,6 +250,11 @@ async def run_everest(options: argparse.Namespace) -> None:
         server_context=ServerConfig.get_server_context_from_conn_info(client.conn_info),
         config=options.config,
     )
+    run_id_path = Path(
+        ServerConfig.get_session_dir(options.config.output_dir), "run_id"
+    )
+    run_id_path.parent.mkdir(parents=True, exist_ok=True)
+    run_id_path.write_text(run_id, encoding="utf-8")  # noqa: ASYNC240
 
     # blocks until the run is finished
     if options.gui:
