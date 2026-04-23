@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import concurrent.futures
+import shutil
 from collections import OrderedDict
 from pathlib import Path
-from queue import SimpleQueue
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
+from pydantic import TypeAdapter
 from PyQt6.QtCore import QSize, Qt
 from PyQt6.QtCore import pyqtSignal as Signal
 from PyQt6.QtGui import QAction, QStandardItemModel
@@ -22,21 +25,23 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from _ert.threading import ErtThread
-from ert.config import QueueSystem
-from ert.ensemble_evaluator import EvaluatorServerConfig
+from ert.dark_storage.client._session import find_conn_info
 from ert.gui.detect_mode import is_dark_mode
 from ert.gui.ertnotifier import ErtNotifier
 from ert.gui.find_ert_info import find_ert_info
 from ert.gui.icon_utils import load_icon
 from ert.gui.summarypanel import SummaryPanel
-from ert.run_models import RunModel, StatusEvents, create_model
+from ert.run_models import RunModel, create_run_model_config
+from ert.run_models.run_model import RunModelConfig
+from ert.run_models.start_request import ErtRunModelStartRequest
+from ert.runpaths import Runpaths
 
 from .combobox_with_description import QComboBoxWithDescription
 from .ensemble_experiment_panel import EnsembleExperimentPanel
 from .ensemble_information_filter_panel import EnsembleInformationFilterPanel
 from .ensemble_smoother_panel import EnsembleSmootherPanel
 from .evaluate_ensemble_panel import EvaluateEnsemblePanel
+from .experiment_client import ExperimentClient
 from .experiment_config_panel import ExperimentConfigPanel
 from .manual_update_panel import ManualUpdatePanel
 from .multiple_data_assimilation_panel import MultipleDataAssimilationPanel
@@ -58,18 +63,56 @@ def create_md_table(kv: dict[str, str], output: str) -> str:
     return output
 
 
-def get_simulation_thread(
-    model: Any, rerun_failed_realizations: bool = False, use_ipc_protocol: bool = False
-) -> ErtThread:
-    evaluator_server_config = EvaluatorServerConfig(use_ipc_protocol=use_ipc_protocol)
+def _runpath_check(
+    run_model_config: RunModelConfig,
+) -> tuple[bool, int, int]:
+    """Return (runpath_exists, num_existing, num_active) using only the config."""
+    run_paths = Runpaths(
+        jobname_format=run_model_config.runpath_config.jobname_format_string,
+        runpath_format=run_model_config.runpath_config.runpath_format_string,
+        filename=str(run_model_config.runpath_file),
+        substitutions=run_model_config.substitutions,
+        eclbase=run_model_config.runpath_config.summary_file_base_name,
+    )
+    active = np.where(run_model_config.active_realizations)[0].tolist()
+    paths = run_paths.get_paths(active, 0)  # iteration 0
+    realization_dirs = {Path(p).parent for p in paths}
+    num_existing = sum(1 for d in realization_dirs if d.exists())
+    runpath_exists = any(Path(p).exists() for p in paths)
+    num_active = run_model_config.active_realizations.count(True)
+    return runpath_exists, num_existing, num_active
 
-    def run() -> None:
-        model.api.start_simulations_thread(
-            evaluator_server_config=evaluator_server_config,
-            rerun_failed_realizations=rerun_failed_realizations,
-        )
 
-    return ErtThread(name="ert_gui_simulation_thread", target=run, daemon=True)
+def _delete_runpaths(
+    run_model_config: RunModelConfig,
+    progress_tracker: RunpathProgressWidget | None = None,
+    progress_callback: Any = None,
+) -> None:
+    """Delete run-path directories for all active realizations at iteration 0."""
+    run_paths = Runpaths(
+        jobname_format=run_model_config.runpath_config.jobname_format_string,
+        runpath_format=run_model_config.runpath_config.runpath_format_string,
+        filename=str(run_model_config.runpath_file),
+        substitutions=run_model_config.substitutions,
+        eclbase=run_model_config.runpath_config.summary_file_base_name,
+    )
+    active = np.where(run_model_config.active_realizations)[0].tolist()
+    paths = run_paths.get_paths(active, 0)
+    if progress_tracker is not None:
+        progress_tracker.start(len(paths))
+    if progress_callback is not None:
+        progress_callback()
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = [
+            executor.submit(lambda p: shutil.rmtree(p, ignore_errors=True), path)
+            for path in paths
+        ]
+        for future in concurrent.futures.as_completed(futures):
+            future.result()
+            if progress_tracker is not None:
+                progress_tracker.advance()
+            if progress_callback is not None:
+                progress_callback()
 
 
 class ExperimentPanel(QWidget):
@@ -299,15 +342,13 @@ class ExperimentPanel(QWidget):
     def run_experiment(self) -> None:
         args = self.get_experiment_arguments()
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-        event_queue: SimpleQueue[StatusEvents] = SimpleQueue()
         try:
-            model = create_model(
+            model_type, run_model_config = create_run_model_config(
                 self.config,
                 args,
-                event_queue,
             )
-
         except ValueError as e:
+            QApplication.restoreOverrideCursor()
             QMessageBox.warning(
                 self,
                 "ERROR: Failed to create experiment",
@@ -316,15 +357,13 @@ class ExperimentPanel(QWidget):
             )
             return
 
-        self._model = model
-
         QApplication.restoreOverrideCursor()
-        if model.check_if_runpath_exists():
+
+        runpath_exists, num_existing, num_active = _runpath_check(run_model_config)
+        if runpath_exists:
             msg_box = QMessageBox(self)
             msg_box.setObjectName("RUN_PATH_WARNING_BOX")
-
             msg_box.setIcon(QMessageBox.Icon.Warning)
-
             msg_box.setText("Run experiments")
             msg_box.setInformativeText(
                 "ERT is running in an existing runpath.\n\n"
@@ -333,26 +372,21 @@ class ExperimentPanel(QWidget):
                 "might be overwritten.\n"
                 "- Previously generated files might "
                 "be used if not configured correctly.\n"
-                f"- {model.get_number_of_existing_runpaths()} out "
-                f"of {model.get_number_of_active_realizations()} realizations "
+                f"- {num_existing} out "
+                f"of {num_active} realizations "
                 "are running in existing runpaths.\n"
                 "Are you sure you want to continue?"
             )
-
             delete_runpath_checkbox = QCheckBox()
             delete_runpath_checkbox.setText("Delete run_path")
             msg_box.setCheckBox(delete_runpath_checkbox)
-
             msg_box.setStandardButtons(
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
             )
             msg_box.setDefaultButton(QMessageBox.StandardButton.No)
-
             msg_box.setWindowModality(Qt.WindowModality.ApplicationModal)
-
             msg_box_res = msg_box.exec()
             if msg_box_res == QMessageBox.StandardButton.No:
-                self._model._storage.close()
                 return
 
             if delete_runpath_checkbox.checkState() == Qt.CheckState.Checked:
@@ -362,7 +396,6 @@ class ExperimentPanel(QWidget):
                 progress_dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
                 progress_layout = QVBoxLayout(progress_dialog)
                 progress_layout.setContentsMargins(0, 0, 0, 0)
-
                 progress_widget = RunpathProgressWidget(
                     progress_dialog,
                     initial_status_text="Deleting runpaths...",
@@ -372,42 +405,65 @@ class ExperimentPanel(QWidget):
                 progress_dialog.resize(420, 120)
                 progress_dialog.show()
                 QApplication.processEvents()
-
                 try:
-                    model.rm_run_path(
+                    _delete_runpaths(
+                        run_model_config,
                         progress_tracker=progress_widget,
-                        # Force UI update during long deletion process
                         progress_callback=QApplication.processEvents,
                     )
                 except OSError as e:
                     progress_dialog.close()
                     progress_dialog.deleteLater()
-                    msg_box = QMessageBox(self)
-                    msg_box.setObjectName("RUN_PATH_ERROR_BOX")
-                    msg_box.setIcon(QMessageBox.Icon.Warning)
-                    msg_box.setText("ERT could not delete the existing runpath")
-                    msg_box.setInformativeText(
+                    err_box = QMessageBox(self)
+                    err_box.setObjectName("RUN_PATH_ERROR_BOX")
+                    err_box.setIcon(QMessageBox.Icon.Warning)
+                    err_box.setText("ERT could not delete the existing runpath")
+                    err_box.setInformativeText(
                         f"{e}\n\nContinue without deleting the runpath?"
                     )
-                    msg_box.setStandardButtons(
+                    err_box.setStandardButtons(
                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
                     )
-                    msg_box.setDefaultButton(QMessageBox.StandardButton.No)
-                    msg_box.setWindowModality(Qt.WindowModality.ApplicationModal)
-                    msg_box_res = msg_box.exec()
-                    if msg_box_res == QMessageBox.StandardButton.No:
+                    err_box.setDefaultButton(QMessageBox.StandardButton.No)
+                    err_box.setWindowModality(Qt.WindowModality.ApplicationModal)
+                    if err_box.exec() == QMessageBox.StandardButton.No:
                         return
                 else:
                     progress_dialog.close()
                     progress_dialog.deleteLater()
 
         self.configuration_summary.log_summary(
-            args.mode, model.get_number_of_active_realizations()
+            args.mode, run_model_config.active_realizations.count(True)
         )
+
+        # Serialize the config and POST to the experiment_server.
+        adapter: TypeAdapter[ErtRunModelStartRequest] = TypeAdapter(
+            ErtRunModelStartRequest
+        )
+        start_request = adapter.validate_python(
+            {
+                "model_type": model_type,
+                "config": run_model_config.model_dump(mode="json"),
+            }
+        )
+        try:
+            conn_info = find_conn_info()  # reads storage_server.json
+            client = ExperimentClient.start_ert_experiment(conn_info, start_request)
+        except Exception as e:
+            QMessageBox.warning(
+                self,
+                "ERROR: Failed to start experiment",
+                str(e),
+                QMessageBox.StandardButton.Ok,
+            )
+            return
+
+        event_queue, event_monitor_thread = client.setup_event_queue_from_ws_endpoint()
+        run_model_api = client.create_run_model_api()
 
         self._dialog = RunDialog(
             f"Experiment - {self._config_file} {find_ert_info()}",
-            model.api,
+            run_model_api,
             event_queue,
             self._notifier,
             self.parent(),  # type: ignore
@@ -416,30 +472,16 @@ class ExperimentPanel(QWidget):
             storage_path=self._notifier.storage.path,
         )
         self._dialog.queue_system.setText(
-            f"Queue system:\n{model.queue_config.queue_system.formatted_name}"
+            "Queue system:\n"
+            + run_model_config.queue_config.queue_system.formatted_name
         )
         self.experiment_started.emit(self._dialog)
         self._experiment_done = False
         self.run_button.setEnabled(self._experiment_done)
 
-        def start_simulation_thread(rerun_failed_realizations: bool = False) -> None:
-            simulation_thread = get_simulation_thread(
-                self._model,
-                rerun_failed_realizations,
-                use_ipc_protocol=self.config.queue_config.queue_system
-                == QueueSystem.LOCAL,
-            )
-            self._dialog.setup_event_monitoring(rerun_failed_realizations)
-            simulation_thread.start()
-            self._notifier.set_is_experiment_running(True)
-
-        def rerun_failed_realizations() -> None:
-            start_simulation_thread(rerun_failed_realizations=True)
-
-        self._dialog.rerun_failed_realizations_experiment.connect(
-            rerun_failed_realizations
-        )
-        start_simulation_thread(rerun_failed_realizations=False)
+        event_monitor_thread.start()
+        self._dialog.setup_event_monitoring()
+        self._notifier.set_is_experiment_running(True)
 
         def simulation_done_handler() -> None:
             self._experiment_done = True

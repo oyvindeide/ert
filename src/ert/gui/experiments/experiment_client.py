@@ -8,20 +8,32 @@ import traceback
 from base64 import b64encode
 from http import HTTPStatus
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import requests
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 from requests import HTTPError
 from websockets.exceptions import ConnectionClosedError
 from websockets.sync.client import connect
 
 from _ert.threading import ErtThread
+from ert.dark_storage.client import ErtClientConnectionInfo
 from ert.ensemble_evaluator import EvaluatorServerConfig
 from ert.run_models import RunModelAPI
 from ert.run_models.event import StatusEvents, status_event_from_json
+from ert.run_models.start_request import ErtRunModelStartRequest
 from everest.strings import EverEndpoints
 
+if TYPE_CHECKING:
+    pass
+
 logger = logging.getLogger(__name__)
+
+
+def _build_ssl_context(cert_file: str) -> ssl.SSLContext:
+    ctx = ssl.create_default_context()
+    ctx.load_verify_locations(cafile=cert_file)
+    return ctx
 
 
 class ExperimentClient:
@@ -44,12 +56,64 @@ class ExperimentClient:
         self._is_alive = False
         self._start_time: int | None = None
 
+    @classmethod
+    def start_ert_experiment(
+        cls,
+        conn_info: ErtClientConnectionInfo,
+        start_request: ErtRunModelStartRequest,
+    ) -> ExperimentClient:
+        """POST an ERT run-model config to the experiment_server and return a
+        client already bound to the resulting run_id.
+
+        Args:
+            conn_info: Connection info for the running ERT storage server.
+            start_request: A validated ``ErtRunModelStartRequest`` wrapping the
+                serializable ``RunModelConfig``.
+
+        Returns:
+            An ``ExperimentClient`` ready to subscribe to events and cancel the run.
+        """
+        if not isinstance(conn_info.cert, str):
+            raise RuntimeError("cert in conn_info must be a file path string")
+        auth_token = conn_info.auth_token
+        if auth_token is None:
+            raise RuntimeError("No auth token found in storage connection info")
+
+        url = conn_info.base_url.rstrip("/") + "/experiment_server"
+        cert_file: str = conn_info.cert
+        username = "username"
+        password = auth_token
+
+        adapter: TypeAdapter[ErtRunModelStartRequest] = TypeAdapter(
+            ErtRunModelStartRequest
+        )
+        payload = adapter.dump_python(start_request, mode="json")
+
+        response = requests.post(
+            f"{url}/{EverEndpoints.start_experiment}",
+            verify=cert_file,
+            auth=(username, password),
+            proxies={"http": None, "https": None},  # type: ignore[dict-item]
+            json=payload,
+        )
+        response.raise_for_status()
+        run_id: str = response.json()["run_id"]
+
+        return cls(
+            run_id=run_id,
+            url=url,
+            cert_file=cert_file,
+            username=username,
+            password=password,
+            ssl_context=_build_ssl_context(cert_file),
+        )
+
     def _http_get(self, endpoint: str) -> requests.Response:
         return requests.get(
             f"{self._url}/{endpoint}",
             verify=self._cert,
             auth=(self._username, self._password),
-            proxies={"http": None, "https": None},  # type: ignore
+            proxies={"http": None, "https": None},  # type: ignore[dict-item]
         )
 
     def _http_post(self, endpoint: str) -> requests.Response:
@@ -57,7 +121,7 @@ class ExperimentClient:
             f"{self._url}/{endpoint}",
             verify=self._cert,
             auth=(self._username, self._password),
-            proxies={"http": None, "https": None},  # type: ignore
+            proxies={"http": None, "https": None},  # type: ignore[dict-item]
         )
 
     @property

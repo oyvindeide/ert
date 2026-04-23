@@ -41,7 +41,7 @@ from .multiple_data_assimilation import (
     MultipleDataAssimilation,
     MultipleDataAssimilationConfig,
 )
-from .run_model import RunModel
+from .run_model import RunModel, RunModelConfig
 from .single_test_run import SingleTestRun, SingleTestRunConfig
 
 if TYPE_CHECKING:
@@ -88,6 +88,52 @@ def create_model(
         return _setup_manual_update(config, args, update_settings, status_queue)
     if args.mode == MANUAL_ENIF_UPDATE_MODE:
         return _setup_manual_update_enif(config, args, update_settings, status_queue)
+    raise NotImplementedError(f"Run type not supported {args.mode}")
+
+
+def create_run_model_config(
+    config: ErtConfig,
+    args: Namespace,
+) -> tuple[str, RunModelConfig]:
+    """Build a serializable ``RunModelConfig`` without constructing the full
+    ``RunModel`` (which would open storage).
+
+    Returns a ``(model_type, config)`` pair where ``model_type`` matches a key in
+    ``_MODEL_TYPE_TO_RUN_MODEL`` in ``ert.run_models.start_request``.
+    """
+    update_settings = config.analysis_config.observation_settings
+
+    if args.mode == TEST_RUN_MODE:
+        return "single_test_run", _build_single_test_run_config(config, args)
+    if args.mode == ENSEMBLE_EXPERIMENT_MODE:
+        return "ensemble_experiment", _build_ensemble_experiment_config(config, args)
+    if args.mode == EVALUATE_ENSEMBLE_MODE:
+        return "evaluate_ensemble", _build_evaluate_ensemble_config(config, args)
+    if args.mode == ENSEMBLE_SMOOTHER_MODE:
+        return (
+            "ensemble_smoother",
+            _build_ensemble_smoother_config(config, args, update_settings),
+        )
+    if args.mode == ENIF_MODE:
+        return (
+            "ensemble_information_filter",
+            _build_ensemble_information_filter_config(config, args, update_settings),
+        )
+    if args.mode == ES_MDA_MODE:
+        return (
+            "multiple_data_assimilation",
+            _build_multiple_data_assimilation_config(config, args, update_settings),
+        )
+    if args.mode == MANUAL_UPDATE_MODE:
+        return "manual_update", _build_manual_update_config(
+            config, args, update_settings
+        )
+    if args.mode == MANUAL_ENIF_UPDATE_MODE:
+        # ManualUpdateEnIF uses the same config shape as ManualUpdate.
+        return (
+            "manual_update_enif",
+            _build_manual_update_config(config, args, update_settings),
+        )
     raise NotImplementedError(f"Run type not supported {args.mode}")
 
 
@@ -547,4 +593,283 @@ def _iterative_ensemble_format(args: Namespace) -> str:
     return (
         args.target_ensemble
         or f"{getattr(args, 'current_ensemble', None) or 'default'}_%d"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Config-only builders (no storage opened, no RunModel constructed).
+# Used by create_run_model_config() and by the experiment_panel to build a
+# payload for the experiment_server without holding a local RunModel.
+# ---------------------------------------------------------------------------
+
+
+def _build_single_test_run_config(
+    config: ErtConfig,
+    args: Namespace,
+) -> SingleTestRunConfig:
+    experiment_name = (
+        "single-test-run" if args.experiment_name is None else args.experiment_name
+    )
+    active_realizations = _get_and_validate_active_realizations_list(args, config)
+    if not active_realizations[0]:
+        raise ConfigValidationError(
+            "Cannot run single test run when the first realization is inactive."
+        )
+    parameter_configs, design_matrix = _merge_parameters(
+        design_matrix=config.analysis_config.design_matrix,
+        parameter_configs=config.ensemble_config.parameter_configuration,
+    )
+    return SingleTestRunConfig(
+        random_seed=config.random_seed,
+        runpath_file=config.runpath_file,
+        active_realizations=[True],
+        target_ensemble=args.current_ensemble,
+        minimum_required_realizations=1,
+        experiment_name=experiment_name,
+        design_matrix=design_matrix,
+        parameter_configuration=parameter_configs,
+        response_configuration=config.ensemble_config.response_configuration,
+        derived_response_configuration=config.ensemble_config.derived_response_configuration,
+        ert_templates=config.ert_templates,
+        user_config_file=Path(config.user_config_file),
+        env_vars=config.env_vars,
+        env_pr_fm_step=config.env_pr_fm_step,
+        runpath_config=config.runpath_config,
+        forward_model_steps=config.forward_model_steps,
+        substitutions=config.substitutions,
+        hooked_workflows=config.hooked_workflows,
+        log_path=config.analysis_config.log_path,
+        storage_path=config.ens_path,
+        queue_config=config.queue_config.create_local_copy(),
+        observations=config.observation_declarations,
+    )
+
+
+def _build_ensemble_experiment_config(
+    config: ErtConfig,
+    args: Namespace,
+) -> EnsembleExperimentConfig:
+    active_realizations = _get_and_validate_active_realizations_list(args, config)
+    validate_minimum_realizations(config, active_realizations)
+    experiment_name = args.experiment_name
+    assert experiment_name is not None
+    parameter_configs, design_matrix = _merge_parameters(
+        design_matrix=config.analysis_config.design_matrix,
+        parameter_configs=config.ensemble_config.parameter_configuration,
+    )
+    return EnsembleExperimentConfig(
+        random_seed=config.random_seed,
+        runpath_file=config.runpath_file,
+        active_realizations=active_realizations,
+        target_ensemble=args.current_ensemble,
+        minimum_required_realizations=config.analysis_config.minimum_required_realizations,
+        experiment_name=experiment_name,
+        design_matrix=design_matrix,
+        parameter_configuration=parameter_configs,
+        response_configuration=config.ensemble_config.response_configuration,
+        derived_response_configuration=config.ensemble_config.derived_response_configuration,
+        ert_templates=config.ert_templates,
+        user_config_file=Path(config.user_config_file),
+        env_vars=config.env_vars,
+        env_pr_fm_step=config.env_pr_fm_step,
+        runpath_config=config.runpath_config,
+        forward_model_steps=config.forward_model_steps,
+        substitutions=config.substitutions,
+        hooked_workflows=config.hooked_workflows,
+        log_path=config.analysis_config.log_path,
+        storage_path=config.ens_path,
+        queue_config=config.queue_config,
+        observations=config.observation_declarations,
+    )
+
+
+def _build_evaluate_ensemble_config(
+    config: ErtConfig,
+    args: Namespace,
+) -> EvaluateEnsembleConfig:
+    active_realizations = _get_and_validate_active_realizations_list(args, config)
+    validate_minimum_realizations(config, active_realizations)
+    return EvaluateEnsembleConfig(
+        random_seed=config.random_seed,
+        active_realizations=active_realizations,
+        ensemble_id=args.ensemble_id,
+        minimum_required_realizations=config.analysis_config.minimum_required_realizations,
+        storage_path=config.ens_path,
+        queue_config=config.queue_config,
+        runpath_file=config.runpath_file,
+        user_config_file=Path(config.user_config_file),
+        env_vars=config.env_vars,
+        env_pr_fm_step=config.env_pr_fm_step,
+        runpath_config=config.runpath_config,
+        forward_model_steps=config.forward_model_steps,
+        substitutions=config.substitutions,
+        hooked_workflows=config.hooked_workflows,
+        log_path=config.analysis_config.log_path,
+    )
+
+
+def _build_ensemble_smoother_config(
+    config: ErtConfig,
+    args: Namespace,
+    update_settings: ObservationSettings,
+) -> EnsembleSmootherConfig:
+    active_realizations = _get_and_validate_active_realizations_list(args, config)
+    validate_minimum_realizations(config, active_realizations)
+    if sum(active_realizations) < 2:
+        raise ConfigValidationError(
+            "Number of active realizations must be at least 2 for an update step"
+        )
+    parameter_configs, design_matrix = _merge_parameters(
+        design_matrix=config.analysis_config.design_matrix,
+        parameter_configs=config.ensemble_config.parameter_configuration,
+        require_updateable_param=True,
+    )
+    return EnsembleSmootherConfig(
+        target_ensemble=args.target_ensemble,
+        experiment_name=getattr(args, "experiment_name", ""),
+        active_realizations=active_realizations,
+        minimum_required_realizations=config.analysis_config.minimum_required_realizations,
+        random_seed=config.random_seed,
+        storage_path=config.ens_path,
+        queue_config=config.queue_config,
+        analysis_settings=config.analysis_config.es_settings,
+        update_settings=update_settings,
+        runpath_file=config.runpath_file,
+        design_matrix=design_matrix,
+        parameter_configuration=parameter_configs,
+        response_configuration=config.ensemble_config.response_configuration,
+        derived_response_configuration=config.ensemble_config.derived_response_configuration,
+        ert_templates=config.ert_templates,
+        user_config_file=Path(config.user_config_file),
+        env_vars=config.env_vars,
+        env_pr_fm_step=config.env_pr_fm_step,
+        runpath_config=config.runpath_config,
+        forward_model_steps=config.forward_model_steps,
+        substitutions=config.substitutions,
+        hooked_workflows=config.hooked_workflows,
+        log_path=config.analysis_config.log_path,
+        observations=config.observation_declarations,
+    )
+
+
+def _build_ensemble_information_filter_config(
+    config: ErtConfig,
+    args: Namespace,
+    update_settings: ObservationSettings,
+) -> EnsembleInformationFilterConfig:
+    active_realizations = _get_and_validate_active_realizations_list(args, config)
+    validate_minimum_realizations(config, active_realizations)
+    if sum(active_realizations) < 2:
+        raise ConfigValidationError(
+            "Number of active realizations must be at least 2 for an update step"
+        )
+    parameter_configs, design_matrix = _merge_parameters(
+        design_matrix=config.analysis_config.design_matrix,
+        parameter_configs=config.ensemble_config.parameter_configuration,
+        require_updateable_param=True,
+    )
+    return EnsembleInformationFilterConfig(
+        target_ensemble=args.target_ensemble,
+        experiment_name=getattr(args, "experiment_name", ""),
+        active_realizations=active_realizations,
+        minimum_required_realizations=config.analysis_config.minimum_required_realizations,
+        random_seed=config.random_seed,
+        storage_path=config.ens_path,
+        queue_config=config.queue_config,
+        analysis_settings=config.analysis_config.es_settings,
+        update_settings=update_settings,
+        runpath_file=config.runpath_file,
+        design_matrix=design_matrix,
+        parameter_configuration=parameter_configs,
+        response_configuration=config.ensemble_config.response_configuration,
+        derived_response_configuration=config.ensemble_config.derived_response_configuration,
+        ert_templates=config.ert_templates,
+        user_config_file=Path(config.user_config_file),
+        env_vars=config.env_vars,
+        env_pr_fm_step=config.env_pr_fm_step,
+        runpath_config=config.runpath_config,
+        forward_model_steps=config.forward_model_steps,
+        substitutions=config.substitutions,
+        hooked_workflows=config.hooked_workflows,
+        log_path=config.analysis_config.log_path,
+        observations=config.observation_declarations,
+    )
+
+
+def _build_multiple_data_assimilation_config(
+    config: ErtConfig,
+    args: Namespace,
+    update_settings: ObservationSettings,
+) -> MultipleDataAssimilationConfig:
+    restart_run, prior_ensemble = _determine_restart_info(args)
+    active_realizations = _get_and_validate_active_realizations_list(args, config)
+    validate_minimum_realizations(config, active_realizations)
+    if sum(active_realizations) < 2:
+        raise ConfigValidationError(
+            "Number of active realizations must be at least 2 for an update step"
+        )
+    parameter_configs, design_matrix = _merge_parameters(
+        design_matrix=None if restart_run else config.analysis_config.design_matrix,
+        parameter_configs=config.ensemble_config.parameter_configuration,
+        require_updateable_param=True,
+    )
+    return MultipleDataAssimilationConfig(
+        random_seed=config.random_seed,
+        active_realizations=active_realizations,
+        target_ensemble=_iterative_ensemble_format(args),
+        weights=args.weights,
+        restart_run=restart_run,
+        prior_ensemble_id=prior_ensemble,
+        minimum_required_realizations=config.analysis_config.minimum_required_realizations,
+        experiment_name=args.experiment_name,
+        queue_config=config.queue_config,
+        update_settings=update_settings,
+        storage_path=config.ens_path,
+        analysis_settings=config.analysis_config.es_settings,
+        runpath_file=config.runpath_file,
+        design_matrix=design_matrix,
+        parameter_configuration=parameter_configs,
+        response_configuration=config.ensemble_config.response_configuration,
+        derived_response_configuration=config.ensemble_config.derived_response_configuration,
+        ert_templates=config.ert_templates,
+        user_config_file=Path(config.user_config_file),
+        env_vars=config.env_vars,
+        env_pr_fm_step=config.env_pr_fm_step,
+        runpath_config=config.runpath_config,
+        forward_model_steps=config.forward_model_steps,
+        substitutions=config.substitutions,
+        hooked_workflows=config.hooked_workflows,
+        log_path=config.analysis_config.log_path,
+        observations=config.observation_declarations,
+    )
+
+
+def _build_manual_update_config(
+    config: ErtConfig,
+    args: Namespace,
+    update_settings: ObservationSettings,
+) -> ManualUpdateConfig:
+    active_realizations = _realizations(args, config.runpath_config.num_realizations)
+    validate_minimum_realizations(config, active_realizations.tolist())
+    return ManualUpdateConfig(
+        random_seed=config.random_seed,
+        active_realizations=active_realizations.tolist(),
+        ensemble_id=args.ensemble_id,
+        minimum_required_realizations=config.analysis_config.minimum_required_realizations,
+        target_ensemble=args.target_ensemble,
+        storage_path=config.ens_path,
+        queue_config=config.queue_config,
+        analysis_settings=config.analysis_config.es_settings,
+        update_settings=update_settings,
+        runpath_file=config.runpath_file,
+        user_config_file=Path(config.user_config_file),
+        env_vars=config.env_vars,
+        env_pr_fm_step=config.env_pr_fm_step,
+        runpath_config=config.runpath_config,
+        forward_model_steps=config.forward_model_steps,
+        substitutions=config.substitutions,
+        hooked_workflows=config.hooked_workflows,
+        log_path=config.analysis_config.log_path,
+        ert_templates=config.ert_templates,
+        observations=config.observation_declarations,
     )
