@@ -36,13 +36,14 @@ from .ensemble_smoother import EnsembleSmoother, EnsembleSmootherConfig
 from .evaluate_ensemble import EvaluateEnsemble, EvaluateEnsembleConfig
 from .initial_ensemble_run_model import DictEncodedDataFrame
 from .manual_update import ManualUpdate, ManualUpdateConfig
-from .manual_update_enif import ManualUpdateEnIF
+from .manual_update_enif import ManualUpdateEnIF, ManualUpdateEnIFConfig
 from .multiple_data_assimilation import (
     MultipleDataAssimilation,
     MultipleDataAssimilationConfig,
 )
-from .run_model import RunModel, RunModelConfig
+from .run_model import RunModel
 from .single_test_run import SingleTestRun, SingleTestRunConfig
+from .start_request import ErtRunModelConfigUnion
 
 if TYPE_CHECKING:
     import numpy.typing as npt
@@ -94,8 +95,8 @@ def create_model(
 def create_run_model_config(
     config: ErtConfig,
     args: Namespace,
-) -> tuple[str, RunModelConfig]:
-    """Build a serializable ``RunModelConfig`` without constructing the full
+) -> tuple[str, ErtRunModelConfigUnion]:
+    """Build a serializable run model config without constructing the full
     ``RunModel`` (which would open storage).
 
     Returns a ``(model_type, config)`` pair where ``model_type`` matches a key in
@@ -129,10 +130,9 @@ def create_run_model_config(
             config, args, update_settings
         )
     if args.mode == MANUAL_ENIF_UPDATE_MODE:
-        # ManualUpdateEnIF uses the same config shape as ManualUpdate.
         return (
             "manual_update_enif",
-            _build_manual_update_config(config, args, update_settings),
+            _build_manual_update_enif_config(config, args, update_settings),
         )
     raise NotImplementedError(f"Run type not supported {args.mode}")
 
@@ -852,6 +852,37 @@ def _build_manual_update_config(
     active_realizations = _realizations(args, config.runpath_config.num_realizations)
     validate_minimum_realizations(config, active_realizations.tolist())
     return ManualUpdateConfig(
+        random_seed=config.random_seed,
+        active_realizations=active_realizations.tolist(),
+        ensemble_id=args.ensemble_id,
+        minimum_required_realizations=config.analysis_config.minimum_required_realizations,
+        target_ensemble=args.target_ensemble,
+        storage_path=config.ens_path,
+        queue_config=config.queue_config,
+        analysis_settings=config.analysis_config.es_settings,
+        update_settings=update_settings,
+        runpath_file=config.runpath_file,
+        user_config_file=Path(config.user_config_file),
+        env_vars=config.env_vars,
+        env_pr_fm_step=config.env_pr_fm_step,
+        runpath_config=config.runpath_config,
+        forward_model_steps=config.forward_model_steps,
+        substitutions=config.substitutions,
+        hooked_workflows=config.hooked_workflows,
+        log_path=config.analysis_config.log_path,
+        ert_templates=config.ert_templates,
+        observations=config.observation_declarations,
+    )
+
+
+def _build_manual_update_enif_config(
+    config: ErtConfig,
+    args: Namespace,
+    update_settings: ObservationSettings,
+) -> ManualUpdateEnIFConfig:
+    active_realizations = _realizations(args, config.runpath_config.num_realizations)
+    validate_minimum_realizations(config, active_realizations.tolist())
+    return ManualUpdateEnIFConfig(
         random_seed=config.random_seed,
         active_realizations=active_realizations.tolist(),
         ensemble_id=args.ensemble_id,

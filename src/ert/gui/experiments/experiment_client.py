@@ -21,7 +21,7 @@ from ert.dark_storage.client import ErtClientConnectionInfo
 from ert.ensemble_evaluator import EvaluatorServerConfig
 from ert.run_models import RunModelAPI
 from ert.run_models.event import StatusEvents, status_event_from_json
-from ert.run_models.start_request import ErtRunModelStartRequest
+from ert.run_models.start_request import ErtRunModelConfigUnion
 from everest.strings import EverEndpoints
 
 if TYPE_CHECKING:
@@ -60,15 +60,14 @@ class ExperimentClient:
     def start_ert_experiment(
         cls,
         conn_info: ErtClientConnectionInfo,
-        start_request: ErtRunModelStartRequest,
+        config: ErtRunModelConfigUnion,
     ) -> ExperimentClient:
         """POST an ERT run-model config to the experiment_server and return a
         client already bound to the resulting run_id.
 
         Args:
             conn_info: Connection info for the running ERT storage server.
-            start_request: A validated ``ErtRunModelStartRequest`` wrapping the
-                serializable ``RunModelConfig``.
+            config: A validated ``ErtRunModelConfigUnion`` instance to execute.
 
         Returns:
             An ``ExperimentClient`` ready to subscribe to events and cancel the run.
@@ -84,10 +83,10 @@ class ExperimentClient:
         username = "username"
         password = auth_token
 
-        adapter: TypeAdapter[ErtRunModelStartRequest] = TypeAdapter(
-            ErtRunModelStartRequest
+        adapter: TypeAdapter[ErtRunModelConfigUnion] = TypeAdapter(
+            ErtRunModelConfigUnion
         )
-        payload = adapter.dump_python(start_request, mode="json")
+        payload = adapter.dump_python(config, mode="json")
 
         response = requests.post(
             f"{url}/{EverEndpoints.start_experiment}",

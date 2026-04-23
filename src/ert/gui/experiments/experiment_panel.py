@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-from pydantic import TypeAdapter
 from PyQt6.QtCore import QSize, Qt
 from PyQt6.QtCore import pyqtSignal as Signal
 from PyQt6.QtGui import QAction, QStandardItemModel
@@ -33,7 +32,6 @@ from ert.gui.icon_utils import load_icon
 from ert.gui.summarypanel import SummaryPanel
 from ert.run_models import RunModel, create_run_model_config
 from ert.run_models.run_model import RunModelConfig
-from ert.run_models.start_request import ErtRunModelStartRequest
 from ert.runpaths import Runpaths
 
 from .combobox_with_description import QComboBoxWithDescription
@@ -343,7 +341,7 @@ class ExperimentPanel(QWidget):
         args = self.get_experiment_arguments()
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
-            model_type, run_model_config = create_run_model_config(
+            _, run_model_config = create_run_model_config(
                 self.config,
                 args,
             )
@@ -436,19 +434,9 @@ class ExperimentPanel(QWidget):
             args.mode, run_model_config.active_realizations.count(True)
         )
 
-        # Serialize the config and POST to the experiment_server.
-        adapter: TypeAdapter[ErtRunModelStartRequest] = TypeAdapter(
-            ErtRunModelStartRequest
-        )
-        start_request = adapter.validate_python(
-            {
-                "model_type": model_type,
-                "config": run_model_config.model_dump(mode="json"),
-            }
-        )
         try:
             conn_info = find_conn_info()  # reads storage_server.json
-            client = ExperimentClient.start_ert_experiment(conn_info, start_request)
+            client = ExperimentClient.start_ert_experiment(conn_info, run_model_config)
         except Exception as e:
             QMessageBox.warning(
                 self,

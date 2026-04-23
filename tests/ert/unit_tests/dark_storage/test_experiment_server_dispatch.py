@@ -24,17 +24,16 @@ from ert.dark_storage.endpoints.experiment_server import (
 )
 from ert.ensemble_evaluator.event import EndEvent
 from ert.run_models.ensemble_experiment import EnsembleExperimentConfig
+from ert.run_models.ensemble_information_filter import EnsembleInformationFilterConfig
+from ert.run_models.ensemble_smoother import EnsembleSmootherConfig
+from ert.run_models.evaluate_ensemble import EvaluateEnsembleConfig
+from ert.run_models.manual_update import ManualUpdateConfig
+from ert.run_models.manual_update_enif import ManualUpdateEnIFConfig
 from ert.run_models.model_factory import create_run_model_config
+from ert.run_models.multiple_data_assimilation import MultipleDataAssimilationConfig
+from ert.run_models.single_test_run import SingleTestRunConfig
 from ert.run_models.start_request import (
     _MODEL_TYPE_TO_RUN_MODEL,
-    EnsembleExperimentStartRequest,
-    EnsembleInformationFilterStartRequest,
-    EnsembleSmootherStartRequest,
-    EvaluateEnsembleStartRequest,
-    ManualUpdateEnIFStartRequest,
-    ManualUpdateStartRequest,
-    MultipleDataAssimilationStartRequest,
-    SingleTestRunStartRequest,
 )
 
 PASSWORD = "test-token"
@@ -54,37 +53,35 @@ def _auth() -> tuple[str, str]:
     return ("username", PASSWORD)
 
 
-def test_that_ert_run_model_start_request_dispatches_single_test_run() -> None:
-    assert (
-        SingleTestRunStartRequest.model_fields["model_type"].default
-        == "single_test_run"
-    )
+def test_that_single_test_run_config_has_single_test_run_model_type_literal() -> None:
+    assert SingleTestRunConfig.model_fields["model_type"].default == "single_test_run"
 
 
 @pytest.mark.parametrize(
-    ("model_type", "expected_wrapper_class"),
+    ("expected_model_type", "config_class"),
     [
-        ("single_test_run", SingleTestRunStartRequest),
-        ("ensemble_experiment", EnsembleExperimentStartRequest),
-        ("ensemble_smoother", EnsembleSmootherStartRequest),
-        ("ensemble_information_filter", EnsembleInformationFilterStartRequest),
-        ("multiple_data_assimilation", MultipleDataAssimilationStartRequest),
-        ("evaluate_ensemble", EvaluateEnsembleStartRequest),
-        ("manual_update", ManualUpdateStartRequest),
-        ("manual_update_enif", ManualUpdateEnIFStartRequest),
+        ("single_test_run", SingleTestRunConfig),
+        ("ensemble_experiment", EnsembleExperimentConfig),
+        ("ensemble_smoother", EnsembleSmootherConfig),
+        ("ensemble_information_filter", EnsembleInformationFilterConfig),
+        ("multiple_data_assimilation", MultipleDataAssimilationConfig),
+        ("evaluate_ensemble", EvaluateEnsembleConfig),
+        ("manual_update", ManualUpdateConfig),
+        ("manual_update_enif", ManualUpdateEnIFConfig),
     ],
 )
-def test_that_ert_run_model_start_request_selects_wrapper_by_model_type(
-    model_type: str,
-    expected_wrapper_class: type,
+def test_that_each_ert_run_model_config_class_declares_its_own_model_type_literal(
+    expected_model_type: str,
+    config_class: type,
 ) -> None:
-    """Each model_type literal must match the matching wrapper envelope's default."""
-    assert expected_wrapper_class.model_fields["model_type"].default == model_type
+    """Each config class must declare model_type as a Literal matching its key
+    in _MODEL_TYPE_TO_RUN_MODEL."""
+    assert config_class.model_fields["model_type"].default == expected_model_type
 
 
 def test_that_model_type_to_run_model_registry_covers_all_ert_model_types() -> None:
     """_MODEL_TYPE_TO_RUN_MODEL must have an entry for every model_type
-    present in the ErtRunModelStartRequest discriminated union."""
+    present in the ErtRunModelConfigUnion discriminated union."""
     expected_types = {
         "single_test_run",
         "ensemble_experiment",
@@ -109,6 +106,7 @@ def test_that_experiment_runner_invokes_registry_run_model_for_ert_config(
 
     mock_config = MagicMock(spec=EnsembleExperimentConfig)
     mock_config.model_dump.return_value = {}
+    mock_config.model_type = "ensemble_experiment"
 
     instantiated: list[Any] = []
     end_event = EndEvent(failed=False, msg="done")
@@ -134,7 +132,7 @@ def test_that_experiment_runner_invokes_registry_run_model_for_ert_config(
         FakeRunModel,  # type: ignore[arg-type]
     )
 
-    runner = ExperimentRunner(mock_config, run_id, model_type="ensemble_experiment")
+    runner = ExperimentRunner(mock_config, run_id)
 
     with (
         patch(
@@ -166,7 +164,7 @@ def test_that_start_experiment_with_model_type_takes_ert_dispatch_path(
     take the ERT path not the legacy Everest path."""
     monkeypatch.setattr("fastapi.BackgroundTasks.add_task", lambda *a, **kw: None)
 
-    payload = {"model_type": "ensemble_experiment", "config": {}}
+    payload = {"model_type": "ensemble_experiment"}
     response = api_client.post(
         "/experiment_server/start_experiment",
         auth=_auth(),

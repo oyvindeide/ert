@@ -37,10 +37,10 @@ from ert.ensemble_evaluator.snapshot import EnsembleSnapshot
 from ert.plugins import get_site_plugins
 from ert.run_models import StatusEvents
 from ert.run_models.everest_run_model import EverestExitCode, EverestRunModel
-from ert.run_models.run_model import RunModel, RunModelConfig
+from ert.run_models.run_model import RunModel
 from ert.run_models.start_request import (
     _MODEL_TYPE_TO_RUN_MODEL,
-    ErtRunModelStartRequest,
+    ErtRunModelConfigUnion,
 )
 from everest.config import EverestConfig
 from everest.detached.everserver import (
@@ -226,15 +226,12 @@ async def start_experiment(
     request_data = await request.json()
     try:
         if "model_type" in request_data:
-            # New ERT run-model path: deserialize via discriminated union.
-            adapter: TypeAdapter[ErtRunModelStartRequest] = TypeAdapter(
-                ErtRunModelStartRequest
+            # ERT run-model path: deserialize directly via discriminated union.
+            adapter: TypeAdapter[ErtRunModelConfigUnion] = TypeAdapter(
+                ErtRunModelConfigUnion
             )
-            start_request = adapter.validate_python(request_data)
-            run_model_config: RunModelConfig = start_request.config
-            runner: ExperimentRunner = ExperimentRunner(
-                run_model_config, run_id, model_type=start_request.model_type
-            )
+            run_model_config = adapter.validate_python(request_data)
+            runner: ExperimentRunner = ExperimentRunner(run_model_config, run_id)
             run_state.config_path = run_model_config.user_config_file
             run_state.run_path = run_model_config.runpath_config.runpath_format_string
             run_state.storage_path = run_model_config.storage_path
@@ -359,14 +356,12 @@ class ExperimentRunner:
 
     def __init__(
         self,
-        config: RunModelConfig | EverestConfig,
+        config: ErtRunModelConfigUnion | EverestConfig,
         run_id: str,
-        model_type: str | None = None,
     ) -> None:
         super().__init__()
         self._config = config
         self._run_id = run_id
-        self._model_type = model_type
 
     async def run(self) -> None:
         run = _runs[self._run_id]
@@ -389,7 +384,7 @@ class ExperimentRunner:
                         runtime_plugins=site_plugins,
                     )
                 else:
-                    model_cls = _MODEL_TYPE_TO_RUN_MODEL[self._model_type]  # type: ignore[index]
+                    model_cls = _MODEL_TYPE_TO_RUN_MODEL[self._config.model_type]
                     run_model = model_cls(
                         **self._config.model_dump(), status_queue=status_queue
                     )
